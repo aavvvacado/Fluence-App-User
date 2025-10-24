@@ -1,0 +1,78 @@
+name: fluence
+description: "A new Flutter project."
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+# A version number is three numbers separated by dots, like 1.2.43
+# Both the version and the builder number may be overridden in flutter
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+# To automatically upgrade your package dependencies to the latest versions
+# dependencies can be manually updated by changing the version numbers below to
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons:
+    # State Management
+  flutter_bloc:
+  equatable:
+
+    # Clean Architecture
+  dartz:  # For Either (Functional Error Handling)
+
+    # Dependency Injection
+  get_it:
+
+    # Routing and Smooth Transitions
+  go_router:
+
+    # Assets and UI
+  flutter_svg:
+  pin_code_fields:  # For the PIN input screen
+  country_code_picker: ^3.4.1
+  smooth_page_indicator:
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # encourage good coding practices. The lint set provided by the package is
+  # package. See that file for information about deactivating specific lint
+  flutter_lints: ^5.0.0
+# following page: https://dart.dev/tools/pub/pubspec
+flutter:
+  # included with your application, so that you can use the icons in
+  uses-material-design: true
+  assets:
+
+    - assets/
+    - assets/images/
+  fonts:
+    - family: Montserrat
+      fonts:
+        - asset: fonts/Montserrat-Regular.ttf
+        - asset: fonts/Montserrat-Bold.ttf
+          weight: 700
+    - family: Poppins
+      fonts:
+        - asset: fonts/Poppins-SemiBold.ttf
+        - asset: fonts/Poppins-Regular.ttf
+        - asset: fonts/Poppins-Bold.ttf
+          weight: 700
+  # https://flutter.dev/to/resolution-aware-images
+  # https://flutter.dev/to/asset-from-package
+  # in this "flutter" section. Each entry in this list should have a
+  # list giving the asset and other descriptors for the font. For
+  # fonts:
+  #     fonts:
+  #       - asset: fonts/Schyler-Italic.ttf
+  #   - family: Trajan Pro
+  #       - asset: fonts/TrajanPro.ttf
+  #         weight: 700
+  # For details regarding fonts from package dependencies,
