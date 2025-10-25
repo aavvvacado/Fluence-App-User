@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "189651267349",
+    "project_id": "fluence-153b7",
+    "storage_bucket": "fluence-153b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:189651267349:android:8f5c0b746bd6b2c300831c",
+        "android_client_info": {
+          "package_name": "com.example.fluence"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "189651267349-d3nrt6o74n4k8p3teiqnnlcmget0gjeu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDA3Nb_54MYA9J8yTzZ5fXo2ReeOVMTLC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "189651267349-d3nrt6o74n4k8p3teiqnnlcmget0gjeu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:189651267349:android:f37641b7b76d7c9100831c",
+        "android_client_info": {
+          "package_name": "com.example.fluence_merchant"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "189651267349-d3nrt6o74n4k8p3teiqnnlcmget0gjeu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDA3Nb_54MYA9J8yTzZ5fXo2ReeOVMTLC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "189651267349-d3nrt6o74n4k8p3teiqnnlcmget0gjeu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

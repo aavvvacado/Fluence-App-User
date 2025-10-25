@@ -1,14 +1,25 @@
 import 'package:country_code_picker/country_code_picker.dart';
+import 'package:fluence/features/auth/presentation/pages/start_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/error/failures.dart';
+import '../../../../core/utils/shared_preferences_service.dart';
 import '../../../../core/widgets/custom_text_input.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+
+String _getFailureMessage(failure) {
+  if (failure is ServerFailure) return failure.message;
+  if (failure is CacheFailure) return failure.message;
+  if (failure is InvalidCredentialsFailure) return failure.message;
+  if (failure is UserNotFoundFailure) return failure.message;
+  return failure.toString();
+}
 
 class CreateAccountScreen extends StatefulWidget {
   static const String path = '/create-account';
@@ -22,13 +33,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  String? passError;
+  String countryCode = '+91'; // default to India
 
   void _onSignUp() {
+    setState(() {passError = null;});
+    if (_passwordController.text.length != 8) {
+      setState(() {
+        passError = 'Password must be exactly 8 characters';
+      });
+      return;
+    }
     context.read<AuthBloc>().add(
       AuthSignUpRequested(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: countryCode + _phoneController.text.trim(),
       ),
     );
   }
@@ -84,159 +104,196 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
 
                   // --- Foreground content ---
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: isSmall ? 140 : 180),
-                      SizedBox(
-                        width: 300,
-                        child: const Text(
-                          'Create\nAccount',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 50.0,
-                            color: AppColors.black,
-                            height: 1.15,
-                            letterSpacing: 0,
+                  BlocListener<AuthBloc, AuthState>(
+                    listener: (context, state) {
+                      print('[CreateAccountScreen] AuthBloc state: $state');
+                      if (state is AuthSignUpSuccess) {
+                        print(
+                          '[CreateAccountScreen] Signup success, redirecting to login screen.',
+                        );
+                        // Save email to shared preferences
+                        SharedPreferencesService.saveEmail(_emailController.text.trim());
+                        context.go('/login');
+                      } else if (state is AuthError) {
+                        // Show error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_getFailureMessage(state.failure)),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: isSmall ? 140 : 180),
+                        SizedBox(
+                          width: 300,
+                          child: const Text(
+                            'Create\nAccount',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 50.0,
+                              color: AppColors.black,
+                              height: 1.15,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 100),
+                        const SizedBox(height: 100),
 
-                      // Email field
-                      CustomTextInput(
-                        controller: _emailController,
-                        hintText: 'Email',
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password field
-                      CustomTextInput(
-                        controller: _passwordController,
-                        hintText: 'Password',
-                        isPassword: true,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Phone field, with country picker prefix
-                      Container(
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: AppColors.textfield,
-                          borderRadius: BorderRadius.circular(
-                            59.29,
-                          ), // your exact radius
+                        // Email field
+                        CustomTextInput(
+                          controller: _emailController,
+                          hintText: 'Email',
+                          keyboardType: TextInputType.emailAddress,
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            CountryCodePicker(
-                              onChanged: (code) {},
-                              initialSelection: 'GB',
-                              showFlag: true,
-                              showCountryOnly: true,
-                              showOnlyCountryWhenClosed: false,
-                              showDropDownButton: true,
-                              hideMainText: true,
-                              alignLeft: false,
-                              flagWidth: 25,
-                              padding: EdgeInsets.zero,
-                            ),
+                        const SizedBox(height: 16),
 
-                            Container(
-                              height: 24,
-                              width: 1,
-                              color: Color(0xff1f1f1f),
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                        // Password field
+                        CustomTextInput(
+                          controller: _passwordController,
+                          hintText: 'Password',
+                          isPassword: true,
+                        ),
+                        if (passError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12.0, top: 4),
+                            child: Text(passError!,
+                              style: const TextStyle(color: Colors.red),
                             ),
-                            // phone number input
-                            Expanded(
-                              child: TextFormField(
-                                controller: _phoneController,
-                                keyboardType: TextInputType.phone,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: AppColors.darkGrey,
-                                  fontFamily: 'Poppins',
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Phone field, with country picker prefix
+                        Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: AppColors.textfield,
+                            borderRadius: BorderRadius.circular(
+                              59.29,
+                            ), // your exact radius
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              CountryCodePicker(
+                                onChanged: (code) { setState((){countryCode = code.dialCode ?? '+91';}); },
+                                initialSelection: 'IN',
+                                favorite: ['+91', 'IN'],
+                                showFlag: true,
+                                showCountryOnly: true,
+                                showOnlyCountryWhenClosed: false,
+                                showDropDownButton: true,
+                                hideMainText: true,
+                                alignLeft: false,
+                                flagWidth: 25,
+                                padding: EdgeInsets.zero,
+                              ),
+
+                              Container(
+                                height: 24,
+                                width: 1,
+                                color: Color(0xff1f1f1f),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8,
                                 ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: 'Your number',
-                                  hintStyle: TextStyle(
-                                    color: Color(0xffD2D2D2),
+                              ),
+                              // phone number input
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.darkGrey,
                                     fontFamily: 'Poppins',
                                   ),
-                                  isCollapsed: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 60),
-
-                      // Done button
-                      BlocBuilder<AuthBloc, AuthState>(
-                        builder: (context, state) {
-                          return SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: state is AuthLoading
-                                  ? null
-                                  : _onSignUp,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryDark,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: state is AuthLoading
-                                  ? const SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 3,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Done',
-                                      style: TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontWeight: FontWeight.w300,
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                      ),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    hintText: 'Your number',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xffD2D2D2),
+                                      fontFamily: 'Poppins',
                                     ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 18),
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
-                      // Cancel button
-                      Center(
-                        child: TextButton(
-                          onPressed: () => context.pop(),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: AppColors.black,
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.w300,
-                              fontSize: 16,
+                        const SizedBox(height: 60),
+
+                        // Done button
+                        BlocBuilder<AuthBloc, AuthState>(
+                          builder: (context, state) {
+                            return SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: ElevatedButton(
+                                onPressed: state is AuthLoading
+                                    ? null
+                                    : _onSignUp,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryDark,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: state is AuthLoading
+                                    ? const SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 3,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Done',
+                                        style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontWeight: FontWeight.w300,
+                                          fontSize: 20,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Cancel button
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go(StartScreen.path);
+                              }
+                            },
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: AppColors.black,
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w300,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 32),
-                    ],
+                        const SizedBox(height: 32),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -44,3 +44,13 @@ class UserNotFoundFailure extends Failure {
   @override
   List<Object?> get props => [message];
 }
+
+class UnauthorizedAccessFailure extends Failure {
+  final String message;
+  const UnauthorizedAccessFailure({
+    this.message = 'Access denied. You do not have permission to access this application.',
+  });
+
+  @override
+  List<Object?> get props => [message];
+}

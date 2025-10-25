@@ -9,6 +9,8 @@ class CustomTextInput extends StatefulWidget {
   final TextInputType keyboardType;
   final IconData? prefixIcon;
   final IconData? suffixIcon;
+  final String? errorText;
+  final VoidCallback? onSuffixIconTap;
 
   const CustomTextInput({
     super.key,
@@ -18,6 +20,8 @@ class CustomTextInput extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.prefixIcon,
     this.suffixIcon,
+    this.errorText,
+    this.onSuffixIconTap,
   });
 
   @override
@@ -42,61 +46,92 @@ class _CustomTextInputState extends State<CustomTextInput> {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: widget.controller,
-      keyboardType: widget.keyboardType,
-      obscureText: _obscureText,
-      style: const TextStyle(fontSize: 16, color: AppColors.darkGrey),
-      decoration: InputDecoration(
-        hintText: widget.hintText,
-        hintStyle: const TextStyle(color: AppColors.hint),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: widget.controller,
+          keyboardType: widget.keyboardType,
+          obscureText: _obscureText,
+          style: const TextStyle(fontSize: 16, color: AppColors.darkGrey),
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            hintStyle: const TextStyle(color: AppColors.hint),
 
-        // Filled background style
-        filled: true,
-        fillColor: AppColors.textfield,
+            // Filled background style
+            filled: true,
+            fillColor: AppColors.textfield,
 
-        // Rounded borders
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(59.29),
-          borderSide: BorderSide.none, // Hide default border
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(59.29),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(59.29),
-          borderSide: const BorderSide(color: AppColors.textfield, width: 2),
-        ),
+            // Rounded borders
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(59.29),
+              borderSide: BorderSide.none, // Hide default border
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(59.29),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(59.29),
+              borderSide: const BorderSide(color: AppColors.textfield, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(59.29),
+              borderSide: const BorderSide(color: AppColors.error, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(59.29),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
 
-        // Optional prefix icon
-        prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon, color: AppColors.textBody)
-            : null,
-
-        // Toggle button for password visibility or custom suffix icon
-        suffixIcon: widget.isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscureText ? Icons.visibility_off : Icons.visibility,
-                  color: Color(0xff1f1f1f),
-                  size: 16,
-                ),
-                onPressed: _toggleVisibility,
-              )
-            : widget.suffixIcon != null
-                ? Icon(
-                    widget.suffixIcon,
-                    color: AppColors.textBody,
-                    size: 20,
-                  )
+            // Optional prefix icon
+            prefixIcon: widget.prefixIcon != null
+                ? Icon(widget.prefixIcon, color: AppColors.textBody)
                 : null,
 
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 18.0,
-          horizontal: 20.0,
+            // Toggle button for password visibility or custom suffix icon
+            suffixIcon: widget.isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: const Color(0xff1f1f1f),
+                      size: 16,
+                    ),
+                    onPressed: _toggleVisibility,
+                  )
+                : widget.suffixIcon != null
+                    ? (widget.onSuffixIconTap != null
+                        ? IconButton(
+                            icon: Icon(widget.suffixIcon,
+                                color: AppColors.textBody, size: 20),
+                            onPressed: widget.onSuffixIconTap,
+                          )
+                        : Icon(
+                            widget.suffixIcon,
+                            color: AppColors.textBody,
+                            size: 20,
+                          ))
+                    : null,
+
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 18.0,
+              horizontal: 20.0,
+            ),
+          ),
         ),
-      ),
+        if (widget.errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, left: 16.0),
+            child: Text(
+              widget.errorText!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

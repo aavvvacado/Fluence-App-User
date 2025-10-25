@@ -8,6 +8,9 @@ import '../../../../core/widgets/custom_app_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'login_screen.dart';
+import 'email_recovery_screen.dart';
+import 'phone_recovery_screen.dart';
 
 class RecoveryOptionsScreen extends StatefulWidget {
   static const String path = '/recovery-options';
@@ -21,9 +24,13 @@ class _RecoveryOptionsScreenState extends State<RecoveryOptionsScreen> {
   String _selectedMethod = 'sms';
 
   void _onNext() {
-    context.read<AuthBloc>().add(
-      AuthRecoveryOptionSelected(method: _selectedMethod),
-    );
+    if (_selectedMethod == 'email') {
+      // Navigate to email recovery screen
+      context.go(EmailRecoveryScreen.path);
+    } else if (_selectedMethod == 'sms') {
+      // Navigate to phone recovery screen
+      context.go(PhoneRecoveryScreen.path);
+    }
   }
 
   @override
@@ -139,7 +146,13 @@ class _RecoveryOptionsScreenState extends State<RecoveryOptionsScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(LoginScreen.path);
+                        }
+                      },
                       child: const Text(
                         'Cancel',
                         style: TextStyle(color: AppColors.textBody),

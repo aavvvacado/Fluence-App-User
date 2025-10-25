@@ -49,6 +49,35 @@ class RecoveryOptionSelectedState extends AuthState {
   List<Object> get props => [method];
 }
 
+class EmailPasswordResetSent extends AuthState {
+  final String email;
+  const EmailPasswordResetSent({required this.email});
+
+  @override
+  List<Object> get props => [email];
+}
+
+class PhoneOtpSent extends AuthState {
+  final String phoneNumber;
+  final String verificationId;
+  const PhoneOtpSent({
+    required this.phoneNumber,
+    required this.verificationId,
+  });
+
+  @override
+  List<Object> get props => [phoneNumber, verificationId];
+}
+
 class OtpVerificationSuccess extends AuthState {}
 
 class PasswordSetSuccess extends AuthState {}
+
+class AuthLogoutSuccess extends AuthState {}
+
+class AuthSignUpSuccess extends AuthState {
+  final UserEntity user;
+  const AuthSignUpSuccess({required this.user});
+  @override
+  List<Object> get props => [user];
+}

@@ -23,6 +23,12 @@ dependencies:
     # State Management
   flutter_bloc:
   equatable:
+  firebase_core:
+  firebase_auth:
+  cloud_firestore:
+  shared_preferences:
+  flutter_dotenv:
+  http:
 
     # Clean Architecture
   dartz:  # For Either (Functional Error Handling)
@@ -50,7 +56,7 @@ flutter:
   # included with your application, so that you can use the icons in
   uses-material-design: true
   assets:
-
+    - .env
     - assets/
     - assets/images/
   fonts:

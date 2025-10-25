@@ -12,6 +12,9 @@ import '../../../../core/widgets/fluence_card.dart';
 import '../../../../core/widgets/home_bottom_nav_bar.dart';
 import '../../../../core/widgets/home_header.dart';
 import '../../../../core/widgets/top_merchants_section.dart';
+import '../../../../core/utils/shared_preferences_service.dart';
+import '../../../../core/services/api_service.dart';
+import '../../../../core/models/profile_completion_response.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +25,33 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedNavIndex = 0;
+  bool _shownProfileCompletionBottomSheet = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showProfileCompletionIfNeeded());
+  }
+
+  Future<void> _showProfileCompletionIfNeeded() async {
+    final needsProfileCompletion = SharedPreferencesService.getNeedsProfileCompletionFlag();
+    if (needsProfileCompletion == true && !_shownProfileCompletionBottomSheet) {
+      _shownProfileCompletionBottomSheet = true;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (context) => Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SingleChildScrollView(child: ProfileCompletionForm(onCompleted: () {
+            setState(() {}); // Trigger UI update for new name
+            Navigator.of(context).pop();
+          })),
+        ),
+      );
+    }
+  }
 
   // Mock data - will be replaced with API calls
   final List<Merchant> _topMerchants = [
@@ -75,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userName = SharedPreferencesService.getUserName() ?? 'Romina';
     return Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
@@ -106,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     left: 0,
                     right: 0,
                     child: HomeHeader(
-                      userName: 'Romina',
+                      userName: userName,
                       avatarPath: 'assets/images/artist-2 1.png',
                     ),
                   ),
@@ -194,6 +225,156 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ProfileCompletionForm extends StatefulWidget {
+  final VoidCallback onCompleted;
+
+  const ProfileCompletionForm({super.key, required this.onCompleted});
+
+  @override
+  State<ProfileCompletionForm> createState() => _ProfileCompletionFormState();
+}
+
+class _ProfileCompletionFormState extends State<ProfileCompletionForm> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _dobController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty ||
+        _dobController.text.trim().isEmpty) {
+      setState(() { _errorMessage = 'Please fill all fields.'; });
+      return;
+    }
+    setState(() { _isLoading = true; _errorMessage = null; });
+    final token = SharedPreferencesService.getAuthToken();
+    if (token == null || token.isEmpty) {
+      setState(() { _errorMessage = 'No user token found'; _isLoading = false; });
+      return;
+    }
+    try {
+      final apiResp = await ApiService.completeProfile(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        dateOfBirth: _dobController.text.trim(),
+        email: _emailController.text.trim(),
+        authToken: token,
+      );
+      if (apiResp['success'] == true) {
+        final profile = ProfileCompletionResponse.fromJson(apiResp);
+        await SharedPreferencesService.saveFullUserProfile(
+          id: profile.user.id,
+          name: profile.user.name,
+          email: profile.user.email,
+          phone: profile.user.phone,
+        );
+        await SharedPreferencesService.setNeedsProfileCompletionFlag(false);
+        setState(() { _isLoading = false; });
+        widget.onCompleted();
+        if (context.mounted) Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _errorMessage = (apiResp['message'] ?? 'Profile completion failed!').toString();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() { _errorMessage = 'An error occurred. Please try again.'; _isLoading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          const Text('Complete Your Profile',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: AppColors.primary,
+                fontFamily: 'Poppins',
+              )),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Full Name',
+              prefixIcon: Icon(Icons.person),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _emailController,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              prefixIcon: Icon(Icons.email),
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _phoneController,
+            decoration: const InputDecoration(
+              labelText: 'Phone',
+              prefixIcon: Icon(Icons.phone),
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _dobController,
+            decoration: const InputDecoration(
+              labelText: 'Date of Birth',
+              prefixIcon: Icon(Icons.cake),
+              border: OutlineInputBorder(),
+              hintText: 'YYYY-MM-DD',
+            ),
+            keyboardType: TextInputType.datetime,
+          ),
+          const SizedBox(height: 24),
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(_errorMessage!, style: TextStyle(color: Colors.red)),
+            ),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+            ),
+            child: _isLoading
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text('Submit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white, fontFamily: 'Poppins')),
+          ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }

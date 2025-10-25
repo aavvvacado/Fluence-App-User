@@ -4,14 +4,14 @@ import '../constants/app_colors.dart';
 
 class CustomAppButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // now nullable
   final bool isPrimary;
   final bool isLoading;
 
   const CustomAppButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    required this.onPressed, // nullable
     this.isPrimary = true,
     this.isLoading = false,
     required TextStyle textStyle,
@@ -27,7 +27,7 @@ class CustomAppButton extends StatelessWidget {
         boxShadow: isPrimary && !isLoading ? [] : null,
       ),
       child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isLoading ? null : onPressed, // Safe for nullable
         style: ElevatedButton.styleFrom(
           backgroundColor: isPrimary ? AppColors.primaryDark : AppColors.white,
           foregroundColor: isPrimary ? AppColors.white : AppColors.primaryDark,

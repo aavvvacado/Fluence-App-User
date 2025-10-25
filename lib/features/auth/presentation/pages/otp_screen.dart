@@ -13,8 +13,15 @@ import '../bloc/auth_state.dart';
 class OtpScreen extends StatefulWidget {
   static const String path = '/otp-verification';
   final String method; // 'sms' or 'email'
+  final String? phoneNumber;
+  final String? verificationId;
 
-  const OtpScreen({super.key, required this.method});
+  const OtpScreen({
+    super.key, 
+    required this.method,
+    this.phoneNumber,
+    this.verificationId,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -25,7 +32,18 @@ class _OtpScreenState extends State<OtpScreen> {
   String? errorMessage;
 
   void _onOtpCompleted(String otp) {
-    context.read<AuthBloc>().add(AuthOtpVerified(otp: otp));
+    if (widget.method == 'phone' && widget.verificationId != null) {
+      // For phone OTP, use the phone verification event
+      context.read<AuthBloc>().add(
+        AuthVerifyPhoneOtpRequested(
+          verificationId: widget.verificationId!,
+          otp: otp,
+        ),
+      );
+    } else {
+      // For email OTP, use the regular OTP verification
+      context.read<AuthBloc>().add(AuthOtpVerified(otp: otp));
+    }
   }
 
   void _onSendAgain() {
@@ -80,7 +98,9 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter 4-digits code we sent you on your ${widget.method}',
+                      widget.method == 'phone' 
+                        ? 'Enter 6-digits code we sent you on ${widget.phoneNumber ?? 'your phone'}'
+                        : 'Enter 4-digits code we sent you on your ${widget.method}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 16,
@@ -92,7 +112,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     // OTP Input Field
                     PinCodeTextField(
                       appContext: context,
-                      length: 4,
+                      length: widget.method == 'phone' ? 6 : 4,
                       obscureText: false,
                       keyboardType: TextInputType.number,
                       animationType: AnimationType.fade,
