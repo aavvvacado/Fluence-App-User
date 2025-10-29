@@ -16,7 +16,7 @@ class WalletHeader extends StatelessWidget {
     this.onMenu,
     this.title = 'My Wallet',
     this.totalLabel = 'TOTAL CASHBACK EARNED',
-    this.totalAmount = 'AED 0.00',
+    this.totalAmount = 'AED 15.00',
   });
 
   @override

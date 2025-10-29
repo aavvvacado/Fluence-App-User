@@ -73,6 +73,9 @@ class OtpVerificationSuccess extends AuthState {}
 
 class PasswordSetSuccess extends AuthState {}
 
+class ProfileCompletionInProgress extends AuthState {}
+class ProfileCompletionSuccess extends AuthState {}
+
 class AuthLogoutSuccess extends AuthState {}
 
 class AuthSignUpSuccess extends AuthState {

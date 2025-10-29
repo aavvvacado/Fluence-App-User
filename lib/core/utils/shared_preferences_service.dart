@@ -2,6 +2,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SharedPreferencesService {
   static const String _tokenKey = 'auth_token';
+  static const String _guestTokenKey = 'guest_token';
+  static const String _guestIdKey = 'guest_id';
+  static const String _isGuestKey = 'is_guest';
   static const String _userIdKey = 'user_id';
   static const String _userEmailKey = 'user_email';
   static const String _userNameKey = 'user_name';
@@ -55,12 +58,45 @@ class SharedPreferencesService {
     return _prefs?.getString(_userNameKey);
   }
 
+  // Get user name for a specific email (for login flow)
+  static String? getUserNameForEmail(String email) {
+    final savedEmail = _prefs?.getString(_userEmailKey);
+    final savedName = _prefs?.getString(_userNameKey);
+    print('[SharedPreferencesService] getUserNameForEmail - Input email: $email');
+    print('[SharedPreferencesService] getUserNameForEmail - Saved email: $savedEmail');
+    print('[SharedPreferencesService] getUserNameForEmail - Saved name: $savedName');
+    
+    if (savedEmail == email) {
+      print('[SharedPreferencesService] Email match found! Returning name: $savedName');
+      return savedName;
+    }
+    print('[SharedPreferencesService] No email match found, returning null');
+    return null;
+  }
+
   static bool isLoggedIn() {
     return _prefs?.getBool(_isLoggedInKey) ?? false;
   }
 
   static String? getAuthToken() {
     return _prefs?.getString(_tokenKey);
+  }
+
+  // Guest session management
+  static Future<void> saveGuestSession({required String guestId, required String token}) async {
+    await _prefs?.setString(_guestIdKey, guestId);
+    await _prefs?.setString(_guestTokenKey, token);
+    await _prefs?.setBool(_isGuestKey, true);
+  }
+
+  static String? getGuestToken() => _prefs?.getString(_guestTokenKey);
+  static String? getGuestId() => _prefs?.getString(_guestIdKey);
+  static bool isGuest() => _prefs?.getBool(_isGuestKey) ?? false;
+
+  static Future<void> clearGuestSession() async {
+    await _prefs?.remove(_guestIdKey);
+    await _prefs?.remove(_guestTokenKey);
+    await _prefs?.remove(_isGuestKey);
   }
 
   // Email history management

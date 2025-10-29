@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:fluence/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../features/guest/presentation/guest_guard.dart';
 
 class HomeBottomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -42,14 +44,10 @@ class HomeBottomNavBar extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildNavItem(icon: Icons.home_rounded, index: 0),
+                    _buildNavItem(context: context, icon: Icons.home_rounded, index: 0),
                     _buildQRScanButton(),
-                    _buildNavItem(
-                      icon: Icons.account_balance_wallet_rounded,
-
-                      index: 2,
-                    ),
-                    _buildNavItem(icon: Icons.person_rounded, index: 3),
+                    _buildNavItem(context: context, icon: Icons.account_balance_wallet_rounded, index: 2),
+                    _buildNavItem(context: context, icon: Icons.person_rounded, index: 3),
                   ],
                 ),
               ),
@@ -86,11 +84,13 @@ class HomeBottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem({required IconData icon, required int index}) {
+  Widget _buildNavItem({required BuildContext context, required IconData icon, required int index}) {
     final isSelected = selectedIndex == index;
 
     return GestureDetector(
-      onTap: () => onTap?.call(index),
+      onTap: () {
+        onTap?.call(index);
+      },
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 50,

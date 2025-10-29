@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/widgets/custom_app_button.dart';
+import '../../../../core/utils/shared_preferences_service.dart';
 
 class ReadyScreen extends StatelessWidget {
   static const String path = '/ready';
@@ -105,7 +106,8 @@ class ReadyScreen extends StatelessWidget {
                             const SizedBox(height: 40),
                             CustomAppButton(
                               text: "Let's Start",
-                              onPressed: () {
+                              onPressed: () async {
+                                await SharedPreferencesService.clearGuestSession();
                                 context.go('/home');
                               },
                               textStyle: const TextStyle(),

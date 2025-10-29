@@ -56,6 +56,15 @@ class AuthSendPhoneOtpRequested extends AuthEvent {
   List<Object> get props => [phoneNumber];
 }
 
+// Initiates phone verification for login (sends code and yields verificationId)
+class AuthStartPhoneVerificationRequested extends AuthEvent {
+  final String phoneNumber;
+  const AuthStartPhoneVerificationRequested({required this.phoneNumber});
+
+  @override
+  List<Object> get props => [phoneNumber];
+}
+
 class AuthVerifyPhoneOtpRequested extends AuthEvent {
   final String verificationId;
   final String otp;
@@ -82,6 +91,23 @@ class AuthNewPasswordSet extends AuthEvent {
 
   @override
   List<Object> get props => [newPassword];
+}
+
+// Complete profile after first login/signup
+class AuthCompleteProfileRequested extends AuthEvent {
+  final String name;
+  final String phone;
+  final String dateOfBirth;
+  final String email;
+  const AuthCompleteProfileRequested({
+    required this.name,
+    required this.phone,
+    required this.dateOfBirth,
+    required this.email,
+  });
+
+  @override
+  List<Object> get props => [name, phone, dateOfBirth, email];
 }
 
 class AuthLogoutRequested extends AuthEvent {

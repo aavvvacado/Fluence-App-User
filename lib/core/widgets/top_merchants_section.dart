@@ -6,15 +6,20 @@ import '../../../../core/models/merchant.dart';
 class TopMerchantsSection extends StatelessWidget {
   final List<Merchant> merchants;
   final VoidCallback? onViewAll;
+  final bool isExpanded;
 
   const TopMerchantsSection({
     super.key,
     required this.merchants,
     this.onViewAll,
+    this.isExpanded = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final showMerchants = isExpanded || merchants.length <= 3
+        ? merchants
+        : merchants.take(3).toList();
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
@@ -35,26 +40,25 @@ class TopMerchantsSection extends StatelessWidget {
                     color: Color(0xff1f1f1f),
                   ),
                 ),
-                if (onViewAll != null)
+                if (onViewAll != null && merchants.length > 3)
                   TextButton(
                     onPressed: onViewAll,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Text(
-                          'View all',
-                          style: TextStyle(
+                          isExpanded ? 'Show less' : 'View all',
+                          style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primary,
-
                             height: 1,
                           ),
                         ),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Icon(
-                          Icons.arrow_forward,
+                          isExpanded ? Icons.arrow_upward : Icons.arrow_forward,
                           size: 14,
                           color: AppColors.primary,
                         ),
@@ -68,9 +72,9 @@ class TopMerchantsSection extends StatelessWidget {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: merchants.length,
+            itemCount: showMerchants.length,
             itemBuilder: (context, index) {
-              return _buildMerchantCard(merchants[index]);
+              return _buildMerchantCard(showMerchants[index]);
             },
           ),
         ],

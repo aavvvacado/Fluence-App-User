@@ -8,8 +8,8 @@ class AppColors {
   static const Color primaryDark = Color(0xFFD4AF37);
 
   // Background and UI colors
-  static const Color textfield = Color(0xFFf8f8f8);
-  static const Color hint = Color(0xffD2D2D2);
+  static const Color textfield = Color(0xFFE0E0E0);
+  static const Color hint = Colors.black45;
   static const Color unfilled = Color(0xFFE5EBFC);
   static const Color background = Color(0xFFF7F7F7);
   static const Color white = Color(0xffF3F3F3);

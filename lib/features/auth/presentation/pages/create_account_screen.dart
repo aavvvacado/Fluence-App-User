@@ -12,6 +12,7 @@ import '../../../../core/widgets/custom_text_input.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'ready_screen.dart';
 
 String _getFailureMessage(failure) {
   if (failure is ServerFailure) return failure.message;
@@ -36,8 +37,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   String? passError;
   String countryCode = '+91'; // default to India
 
+  // ✅ Checkboxes
+  bool _agreeAuthInfo = false;
+  bool _agreePrivacy = false;
+
   void _onSignUp() {
-    setState(() {passError = null;});
+    setState(() {
+      passError = null;
+    });
     if (_passwordController.text.length != 8) {
       setState(() {
         passError = 'Password must be exactly 8 characters';
@@ -88,10 +95,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Stack(
                 children: [
-                  // --- Positioned illustration behind input fields ---
+                  // illustration behind inputs
                   Positioned(
-                    top: 251, // precise top offset
-                    left: 20, // precise left offset
+                    top: 251,
+                    left: 20,
                     child: Opacity(
                       opacity: 0.54,
                       child: SvgPicture.asset(
@@ -103,19 +110,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
 
-                  // --- Foreground content ---
                   BlocListener<AuthBloc, AuthState>(
-                    listener: (context, state) {
-                      print('[CreateAccountScreen] AuthBloc state: $state');
+                    listener: (context, state) async {
                       if (state is AuthSignUpSuccess) {
-                        print(
-                          '[CreateAccountScreen] Signup success, redirecting to login screen.',
+                        SharedPreferencesService.saveEmail(
+                          _emailController.text.trim(),
                         );
-                        // Save email to shared preferences
-                        SharedPreferencesService.saveEmail(_emailController.text.trim());
-                        context.go('/login');
+                        await SharedPreferencesService.clearGuestSession();
+                        context.go(ReadyScreen.path);
                       } else if (state is AuthError) {
-                        // Show error message
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(_getFailureMessage(state.failure)),
@@ -138,7 +141,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               fontSize: 50.0,
                               color: AppColors.black,
                               height: 1.15,
-                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -161,26 +163,29 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         if (passError != null)
                           Padding(
                             padding: const EdgeInsets.only(left: 12.0, top: 4),
-                            child: Text(passError!,
+                            child: Text(
+                              passError!,
                               style: const TextStyle(color: Colors.red),
                             ),
                           ),
                         const SizedBox(height: 16),
 
-                        // Phone field, with country picker prefix
+                        // Phone field with country picker
                         Container(
                           height: 60,
                           decoration: BoxDecoration(
                             color: AppColors.textfield,
-                            borderRadius: BorderRadius.circular(
-                              59.29,
-                            ), // your exact radius
+                            borderRadius: BorderRadius.circular(59.29),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
                             children: [
                               CountryCodePicker(
-                                onChanged: (code) { setState((){countryCode = code.dialCode ?? '+91';}); },
+                                onChanged: (code) {
+                                  setState(() {
+                                    countryCode = code.dialCode ?? '+91';
+                                  });
+                                },
                                 initialSelection: 'IN',
                                 favorite: ['+91', 'IN'],
                                 showFlag: true,
@@ -192,16 +197,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 flagWidth: 25,
                                 padding: EdgeInsets.zero,
                               ),
-
                               Container(
                                 height: 24,
                                 width: 1,
-                                color: Color(0xff1f1f1f),
+                                color: const Color(0xff1f1f1f),
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                 ),
                               ),
-                              // phone number input
                               Expanded(
                                 child: TextFormField(
                                   controller: _phoneController,
@@ -215,7 +218,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                     border: InputBorder.none,
                                     hintText: 'Your number',
                                     hintStyle: TextStyle(
-                                      color: Color(0xffD2D2D2),
+                                      color: Colors.black45,
                                       fontFamily: 'Poppins',
                                     ),
                                     isCollapsed: true,
@@ -227,16 +230,90 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 60),
+                        const SizedBox(height: 40),
 
-                        // Done button
+                        // ✅ Checkboxes section
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'The information you provide during login will be used solely for authentication and improving your app experience.',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  color: AppColors.black,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                            Checkbox(
+                              value: _agreeAuthInfo,
+
+                              checkColor: Colors.white, // tick color
+                              side: const BorderSide(
+                                // border when unchecked or checked
+                                color: AppColors.primaryDark,
+                                width: 3,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  _agreeAuthInfo = val ?? false;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'We do not sell, trade, or share your personal data with third parties.',
+                                style: const TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  color: AppColors.black,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                            Checkbox(
+                              value: _agreePrivacy,
+
+                              checkColor: Colors.white, // tick color
+                              side: const BorderSide(
+                                // border when unchecked or checked
+                                color: AppColors.primaryDark,
+                                width: 3,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              onChanged: (val) {
+                                setState(() {
+                                  _agreePrivacy = val ?? false;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // ✅ Done button (only active when both boxes checked)
                         BlocBuilder<AuthBloc, AuthState>(
                           builder: (context, state) {
+                            final canProceed = _agreeAuthInfo && _agreePrivacy;
                             return SizedBox(
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: state is AuthLoading
+                                onPressed: (state is AuthLoading || !canProceed)
                                     ? null
                                     : _onSignUp,
                                 style: ElevatedButton.styleFrom(
@@ -268,6 +345,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             );
                           },
                         ),
+
                         const SizedBox(height: 18),
 
                         // Cancel button
@@ -291,7 +369,62 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+
+                        const SizedBox(height: 16),
+
+                        // ✅ Terms & Privacy clickable text
+                        Center(
+                          child: Wrap(
+                            alignment: WrapAlignment.center,
+                            children: [
+                              const Text(
+                                'By continuing, you agree to our ',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  // TODO: navigate to Terms of Service
+                                },
+                                child: const Text(
+                                  'Terms of Service',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 13,
+                                    color: AppColors.primaryDark,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const Text(
+                                ' and ',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 13,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  // TODO: navigate to Privacy Policy
+                                },
+                                child: const Text(
+                                  'Privacy Policy',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 13,
+                                    color: AppColors.primaryDark,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
@@ -300,65 +433,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Phone number input (SRP isolated widget)
-class _PhoneInput extends StatelessWidget {
-  final TextEditingController controller;
-  const _PhoneInput({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: TextInputType.phone,
-      style: const TextStyle(
-        fontSize: 16,
-        color: AppColors.darkGrey,
-        fontFamily: 'Poppins',
-      ),
-      decoration: InputDecoration(
-        hintText: 'Your number',
-        hintStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          color: Color(0xffD2D2D2),
-          fontFamily: 'Poppins',
-        ),
-        filled: true,
-        fillColor: AppColors.textfield,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(59.29),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(59.29),
-          borderSide: const BorderSide(color: AppColors.textfield),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 18,
-          horizontal: 16,
-        ),
-        prefixIcon: Padding(
-          padding: const EdgeInsets.only(left: 10, right: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 20,
-                color: Color(0xff1f1f1f),
-              ),
-              const SizedBox(width: 10),
-              Container(width: 1, height: 30, color: Color(0xff1f1f1f)),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
       ),
     );
   }

@@ -71,19 +71,20 @@ class _PasswordPinScreenState extends State<PasswordPinScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: BlocListener<AuthBloc, AuthState>(
-                 listener: (context, state) {
-                   if (state is AuthAuthenticated) {
-                     // Save email to shared preferences on successful login
-                     SharedPreferencesService.saveEmail(widget.email);
-                     context.go('/ready');
-                   } else if (state is AuthError) {
-                     // Simulating the "06 Wrong Password" state
-                     setState(() {
-                       errorMessage = 'Wrong Password. Try again.';
-                     });
-                     _pinController.clear();
-                   }
-                 },
+                listener: (context, state) async {
+                  if (state is AuthAuthenticated) {
+                    // Save email to shared preferences on successful login
+                    SharedPreferencesService.saveEmail(widget.email);
+                    await SharedPreferencesService.clearGuestSession();
+                    context.go('/ready');
+                  } else if (state is AuthError) {
+                    // Simulating the "06 Wrong Password" state
+                    setState(() {
+                      errorMessage = 'Wrong Password. Try again.';
+                    });
+                    _pinController.clear();
+                  }
+                },
                 child: Column(
                   children: [
                     const SizedBox(height: 100),

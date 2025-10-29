@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/shared_preferences_service.dart';
 import '../../../../core/widgets/curved_background_clipper.dart';
 import '../../../../core/widgets/custom_app_button.dart';
 import '../bloc/auth_bloc.dart';
@@ -12,12 +13,12 @@ import '../bloc/auth_state.dart';
 
 class OtpScreen extends StatefulWidget {
   static const String path = '/otp-verification';
-  final String method; // 'sms' or 'email'
+  final String method; // 'phone' or 'email'
   final String? phoneNumber;
   final String? verificationId;
 
   const OtpScreen({
-    super.key, 
+    super.key,
     required this.method,
     this.phoneNumber,
     this.verificationId,
@@ -71,7 +72,9 @@ class _OtpScreenState extends State<OtpScreen> {
               child: BlocListener<AuthBloc, AuthState>(
                 listener: (context, state) {
                   if (state is OtpVerificationSuccess) {
-                    context.go('/new-password');
+                    SharedPreferencesService.clearGuestSession();
+                    // For login phone/email OTP flows we go to Ready screen
+                    context.go('/ready');
                   } else if (state is PasswordPinError) {
                     setState(() {
                       errorMessage = state.message;
@@ -98,9 +101,9 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      widget.method == 'phone' 
-                        ? 'Enter 6-digits code we sent you on ${widget.phoneNumber ?? 'your phone'}'
-                        : 'Enter 4-digits code we sent you on your ${widget.method}',
+                      widget.method == 'phone'
+                          ? 'Enter 6-digits code we sent you on ${widget.phoneNumber ?? 'your phone'}'
+                          : 'Enter 4-digits code we sent you on your ${widget.method}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 16,
@@ -112,7 +115,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     // OTP Input Field
                     PinCodeTextField(
                       appContext: context,
-                      length: widget.method == 'phone' ? 6 : 4,
+                      length: 4,
                       obscureText: false,
                       keyboardType: TextInputType.number,
                       animationType: AnimationType.fade,

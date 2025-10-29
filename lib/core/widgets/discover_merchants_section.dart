@@ -8,6 +8,7 @@ class DiscoverMerchantsSection extends StatefulWidget {
   final List<String> categories;
   final Function(String)? onSearch;
   final Function(String)? onCategorySelected;
+  final VoidCallback? onMerchantTap;
 
   const DiscoverMerchantsSection({
     super.key,
@@ -15,6 +16,7 @@ class DiscoverMerchantsSection extends StatefulWidget {
     required this.categories,
     this.onSearch,
     this.onCategorySelected,
+    this.onMerchantTap,
   });
 
   @override
@@ -150,7 +152,9 @@ class _DiscoverMerchantsSectionState extends State<DiscoverMerchantsSection> {
   }
 
   Widget _buildMerchantCard(MerchantCard merchant) {
-    return Container(
+    return GestureDetector(
+      onTap: widget.onMerchantTap,
+      child: Container(
       // The main container no longer needs the background color,
       // border radius, or box shadow, as these visual properties
       // seem to be applied primarily to the image in the example.
@@ -224,7 +228,7 @@ class _DiscoverMerchantsSectionState extends State<DiscoverMerchantsSection> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   // Keep the placeholder image function as is, or adjust its style if necessary.

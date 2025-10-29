@@ -1,19 +1,24 @@
-import 'package:fluence/core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../core/constants/app_colors.dart';
 
 class FluenceCard extends StatelessWidget {
   final int points;
   final String? backgroundImagePath;
+  final String? message;
+  final VoidCallback? onTap;
 
   const FluenceCard({
     super.key,
     required this.points,
     this.backgroundImagePath,
+    this.message,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       height: 140,
       decoration: _buildCardDecoration(),
@@ -22,10 +27,17 @@ class FluenceCard extends StatelessWidget {
           const _BackgroundPattern(),
           if (backgroundImagePath != null)
             _BackgroundImage(imagePath: backgroundImagePath!),
-          Positioned.fill(child: _CardContent(points: points)),
+          Positioned.fill(
+            child: _CardContent(points: points, message: message),
+          ),
         ],
       ),
     );
+
+    if (onTap != null) {
+      return GestureDetector(onTap: onTap, child: card);
+    }
+    return card;
   }
 
   BoxDecoration _buildCardDecoration() {
@@ -153,8 +165,9 @@ class _BackgroundImage extends StatelessWidget {
 
 class _CardContent extends StatelessWidget {
   final int points;
+  final String? message;
 
-  const _CardContent({required this.points});
+  const _CardContent({required this.points, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +191,7 @@ class _CardContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
                         Text(
-                          'Fluence Card',
+                          'Fluence Score',
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 20,
@@ -189,7 +202,7 @@ class _CardContent extends StatelessWidget {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Total cashback earned',
+                          'Total points earned',
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 16,
@@ -204,7 +217,7 @@ class _CardContent extends StatelessWidget {
                 ),
               ),
 
-              // Bottom right - Points display
+              // Bottom right - Points display or message
               Flexible(
                 flex: 2,
                 child: Align(
@@ -212,7 +225,18 @@ class _CardContent extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.bottomRight,
-                    child: _PointsDisplay(points: points),
+                    child: message != null
+                        ? Text(
+                            message!,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.right,
+                          )
+                        : _PointsDisplay(points: points),
                   ),
                 ),
               ),
