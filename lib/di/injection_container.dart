@@ -15,6 +15,8 @@ import '../features/auth/domain/usecases/reset_password_with_email.dart';
 import '../features/auth/domain/usecases/send_phone_otp.dart';
 import '../features/auth/domain/usecases/verify_phone_otp.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
+import '../core/services/notification_service.dart';
+import '../core/bloc/notification_bloc.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
@@ -32,6 +34,8 @@ Future<void> init() async {
     sendPhoneOtp: sl(),
     verifyPhoneOtp: sl(),
   ));
+
+  sl.registerFactory(() => NotificationBloc());
 
   // Use cases
   sl.registerLazySingleton(() => Login(sl()));
@@ -52,4 +56,7 @@ Future<void> init() async {
   sl.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSourceImpl(),
   );
+
+  // Services
+  sl.registerLazySingleton(() => NotificationService());
 }

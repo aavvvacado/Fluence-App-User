@@ -51,11 +51,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       });
       return;
     }
+    // Save temp details for profile prefill
+    final combinedPhone = countryCode + _phoneController.text.trim();
+    SharedPreferencesService.saveTempSignupEmail(_emailController.text.trim());
+    SharedPreferencesService.saveTempSignupPhone(combinedPhone);
+
     context.read<AuthBloc>().add(
       AuthSignUpRequested(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        phone: countryCode + _phoneController.text.trim(),
+        phone: combinedPhone,
       ),
     );
   }

@@ -12,6 +12,10 @@ class SharedPreferencesService {
   static const String _savedEmailsKey = 'saved_emails';
   static const String _profilePhoneKey = 'profile_phone';
   static const String _needsProfileCompletionKey = 'needs_profile_completion';
+  // Temp signup details to prefill profile completion
+  static const String _tempSignupEmailKey = 'temp_signup_email';
+  static const String _tempSignupPhoneKey = 'temp_signup_phone';
+  static const String _tempSignupDobKey = 'temp_signup_dob';
 
   static SharedPreferences? _prefs;
 
@@ -135,6 +139,28 @@ class SharedPreferencesService {
     print('[SharedPreferencesService] Saving FULL user: id=$id, name=$name, email=$email, phone=$phone');
     await saveUserData(userId: id, email: email, name: name);
     await saveProfilePhone(phone);
+  }
+
+  // Temp signup detail helpers for prefill
+  static Future<void> saveTempSignupEmail(String email) async {
+    await _prefs?.setString(_tempSignupEmailKey, email);
+  }
+  static String? getTempSignupEmail() => _prefs?.getString(_tempSignupEmailKey);
+
+  static Future<void> saveTempSignupPhone(String phone) async {
+    await _prefs?.setString(_tempSignupPhoneKey, phone);
+  }
+  static String? getTempSignupPhone() => _prefs?.getString(_tempSignupPhoneKey);
+
+  static Future<void> saveTempSignupDob(String dob) async {
+    await _prefs?.setString(_tempSignupDobKey, dob);
+  }
+  static String? getTempSignupDob() => _prefs?.getString(_tempSignupDobKey);
+
+  static Future<void> clearTempSignupDetails() async {
+    await _prefs?.remove(_tempSignupEmailKey);
+    await _prefs?.remove(_tempSignupPhoneKey);
+    await _prefs?.remove(_tempSignupDobKey);
   }
 
   // Clear all auth data

@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../bloc/notification_bloc.dart';
 
 class HomeHeader extends StatelessWidget {
   final String userName;
   final String? avatarPath;
+  final VoidCallback? onNotificationTap;
 
-  const HomeHeader({super.key, required this.userName, this.avatarPath});
+  const HomeHeader({
+    super.key, 
+    required this.userName, 
+    this.avatarPath,
+    this.onNotificationTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +62,7 @@ class HomeHeader extends StatelessWidget {
           // Action Icons
           Row(
             children: [
-              _buildActionButton(Icons.notifications_active),
+              _buildNotificationButton(),
               const SizedBox(width: 12),
               _buildActionButton(Icons.card_giftcard_sharp),
             ],
@@ -68,6 +76,75 @@ class HomeHeader extends StatelessWidget {
     return Container(
       color: AppColors.lightGrey,
       child: const Icon(Icons.person, color: AppColors.textBody, size: 24),
+    );
+  }
+
+  Widget _buildNotificationButton() {
+    return BlocBuilder<NotificationBloc, NotificationState>(
+      builder: (context, state) {
+        int unreadCount = 0;
+        
+        if (state is NotificationLoaded) {
+          unreadCount = state.unreadCount;
+        } else if (state is UnreadCountLoaded) {
+          unreadCount = state.unreadCount;
+        }
+        
+        return GestureDetector(
+          onTap: onNotificationTap,
+          child: Stack(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.notifications_active,
+                  color: AppColors.white,
+                  size: 20,
+                ),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount > 99 ? '99+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

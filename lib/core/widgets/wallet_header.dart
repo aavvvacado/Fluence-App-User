@@ -6,6 +6,7 @@ class WalletHeader extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onMenu;
   final String title;
+  final double titleFontSize;
   final String totalLabel;
   final String totalAmount;
 
@@ -15,8 +16,10 @@ class WalletHeader extends StatelessWidget {
     this.onBack,
     this.onMenu,
     this.title = 'My Wallet',
-    this.totalLabel = 'TOTAL CASHBACK EARNED',
-    this.totalAmount = 'AED 15.00',
+    this.titleFontSize = 20,
+    this.totalLabel =
+        'Great job!\n Your 250 points can unlock ₹150\n cashback on exciting offers',
+    this.totalAmount = '',
   });
 
   @override
@@ -56,21 +59,9 @@ class WalletHeader extends StatelessWidget {
                                 totalLabel,
                                 style: const TextStyle(
                                   fontFamily: 'Poppins',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w500,
                                   color: Colors.white,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                totalAmount,
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  height: 1.0,
                                 ),
                               ),
                             ],

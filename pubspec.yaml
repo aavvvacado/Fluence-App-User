@@ -22,6 +22,7 @@ dependencies:
   cupertino_icons:
     # State Management
   flutter_bloc:
+  bloc:
   equatable:
   firebase_core:
   firebase_auth:

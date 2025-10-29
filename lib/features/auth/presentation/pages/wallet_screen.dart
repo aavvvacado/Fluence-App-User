@@ -1,3 +1,4 @@
+import 'package:fluence/features/auth/presentation/pages/start_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,6 +23,8 @@ class _WalletScreenState extends State<WalletScreen> {
   String? _walletCurrency;
   bool _loadingWallet = true;
   String? _walletError;
+
+  bool get _isGuest => isGuestUser();
 
   @override
   void initState() {
@@ -62,10 +65,6 @@ class _WalletScreenState extends State<WalletScreen> {
     final double headerHeight = MediaQuery.sizeOf(context).height * 0.24;
     final double panelTopPosition = headerHeight - 60;
 
-    final String headerAmount = (isGuestUser())
-        ? 'AED 0.00'
-        : '${_walletCurrency ?? ''} ${(_walletTotalBalance ?? 0.0).toStringAsFixed(2)}';
-
     return Scaffold(
       backgroundColor: AppColors.white,
       body: Stack(
@@ -79,8 +78,8 @@ class _WalletScreenState extends State<WalletScreen> {
               height: headerHeight,
               onBack: () => context.go('/home'),
               onMenu: () {},
-              totalAmount: headerAmount,
-              totalLabel: 'TOTAL CASHBACK EARNED',
+              totalLabel:
+                  'Great job!\n Your 250 points can unlock ₹150\n cashback on exciting offers',
             ),
           ),
           // Scrollable content area - starts below header
@@ -107,6 +106,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         totalBalance: _walletTotalBalance,
                         currency: _walletCurrency,
                         loading: _loadingWallet,
+                        isGuest: _isGuest,
                       ),
                     ),
 
@@ -220,9 +220,13 @@ class _StatsPanel extends StatelessWidget {
   final double? totalBalance;
   final String? currency;
   final bool loading;
-  const _StatsPanel({this.totalBalance, this.currency, this.loading = false});
-
-  bool get _isGuest => isGuestUser();
+  final bool isGuest;
+  const _StatsPanel({
+    this.totalBalance,
+    this.currency,
+    this.loading = false,
+    required this.isGuest,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -243,8 +247,8 @@ class _StatsPanel extends StatelessWidget {
         children: [
           _rowItem(
             context,
-            icon: Icons.calendar_month_rounded,
-            title: 'PERIOD EARNED',
+            imagePath: 'assets/images/total_points.png',
+            title: 'TOTAL POINTS',
             trailing: loading
                 ? SizedBox(
                     height: 16,
@@ -254,20 +258,20 @@ class _StatsPanel extends StatelessWidget {
                     ),
                   )
                 : _pill(
-                    '${currency ?? ''} ${_isGuest ? '0.00' : (totalBalance?.toStringAsFixed(2) ?? '0.00')}',
+                    '${currency ?? ''} ${isGuest ? '0.00' : (totalBalance?.toStringAsFixed(2) ?? '0.00')}',
                   ),
           ),
           const SizedBox(height: 12),
           _rowItem(
             context,
-            icon: Icons.timelapse_rounded,
+            imagePath: 'assets/images/pending.png',
             title: 'PENDING',
             trailing: _pill('${currency ?? ''} 0.00'),
           ),
           const SizedBox(height: 12),
           _rowItem(
             context,
-            icon: Icons.compare_arrows_rounded,
+            imagePath: 'assets/images/money.png',
             title: 'TRANSACTIONS',
             trailing: _pill('0'),
           ),
@@ -297,11 +301,10 @@ class _StatsPanel extends StatelessWidget {
 
   Widget _rowItem(
     BuildContext context, {
-    required IconData icon,
+    required String imagePath, // <-- instead of IconData
     required String title,
     required Widget trailing,
   }) {
-    // Gate taps on the row if guest
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
@@ -317,7 +320,17 @@ class _StatsPanel extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(60),
             ),
-            child: Icon(icon, color: AppColors.primary),
+            child: Center(
+              child: Image.asset(
+                imagePath,
+                width: 22,
+                height: 22,
+                // Removed color tint to show original image colors
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(Icons.image, color: AppColors.primary, size: 22);
+                },
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -373,48 +386,211 @@ class _FiltersAndList extends StatefulWidget {
 
 class _FiltersAndListState extends State<_FiltersAndList> {
   String _selectedChip = 'All time';
+  DateTime? _fromDate;
+  DateTime? _toDate;
+  final List<Map<String, dynamic>> _allTransactions = [];
 
   // 🧾 Hardcoded sample transactions for logged-in users only
-  final List<Map<String, dynamic>> _transactions = [
-    {
-      'id': 1,
-      'title': 'Zara Purchase',
-      'amount': 150.75,
-      'currency': 'AED',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'type': 'Earned',
-    },
-    {
-      'id': 2,
-      'title': 'Starbucks Coffee',
-      'amount': 45.00,
-      'currency': 'AED',
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'type': 'Spent',
-    },
-  ];
 
-  // 🧠 Replace this with your actual auth check later
-  bool get _isGuest => true; // ← Change to your real guest check logic
+  // Check if user is guest using SharedPreferencesService
+  bool get _isGuest => isGuestUser();
+
+  // Transactions will be fetched from API in the future. No mock data.
 
   List<Map<String, dynamic>> get _filteredTransactions {
     if (_isGuest) return []; // 🚫 No transactions for guest
+
+    List<Map<String, dynamic>> list = List.of(_allTransactions);
     final now = DateTime.now();
 
+    // Apply chip-based filtering first
     if (_selectedChip == 'This week') {
-      return _transactions.where((tx) {
+      list = list.where((tx) {
         final diff = now.difference(tx['date']).inDays;
         return diff <= 7;
       }).toList();
     } else if (_selectedChip == 'Last week') {
-      return _transactions.where((tx) {
+      list = list.where((tx) {
         final diff = now.difference(tx['date']).inDays;
         return diff > 7 && diff <= 14;
       }).toList();
-    } else {
-      return _transactions;
+    }
+    // 'All time' shows all transactions
+
+    // Apply custom date range filter if both dates are selected
+    if (_fromDate != null && _toDate != null) {
+      final DateTime from = DateTime(
+        _fromDate!.year,
+        _fromDate!.month,
+        _fromDate!.day,
+      );
+      final DateTime to = DateTime(
+        _toDate!.year,
+        _toDate!.month,
+        _toDate!.day,
+        23,
+        59,
+        59,
+      );
+      list = list.where((tx) {
+        final DateTime? date = tx['date'] as DateTime?;
+        if (date == null) return false;
+        return !date.isBefore(from) && !date.isAfter(to);
+      }).toList();
+    }
+
+    return list;
+  }
+
+  String _formatPrettyDate(DateTime dateTime) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final day = dateTime.day;
+    final month = months[dateTime.month - 1];
+    int hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'pm' : 'am';
+    hour = hour % 12;
+    if (hour == 0) hour = 12;
+    return '$day $month, $hour:$minute $period';
+  }
+
+  String _formatTrailingValue(Map<String, dynamic> tx) {
+    final int? points = tx['points'] as int?;
+    if (points != null) {
+      return '$points points';
+    }
+    final String currency = (tx['currency'] ?? '') as String;
+    final double amount = (tx['amount'] ?? 0).toDouble();
+    final bool isEarned = tx['type'] == 'Earned';
+    return '${isEarned ? '+' : '-'}$currency ${amount.toStringAsFixed(2)}';
+  }
+
+  void _showSignupBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Create an account to continue',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Sign up to scan and pay or view your transactions.',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.go(StartScreen.path);
+                  },
+                  child: const Text(
+                    'Sign up',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'Maybe later',
+                  style: TextStyle(fontFamily: 'Poppins'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onFilterTap() async {
+    final now = DateTime.now();
+    final lastMonth = DateTime(now.year, now.month - 1, now.day);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 5),
+      initialDateRange: (_fromDate != null && _toDate != null)
+          ? DateTimeRange(start: _fromDate!, end: _toDate!)
+          : DateTimeRange(start: lastMonth, end: now),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(
+            ctx,
+          ).colorScheme.copyWith(primary: AppColors.primary),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _fromDate = picked.start;
+        _toDate = picked.end;
+      });
     }
   }
+
+  void _clearDateRange() {
+    setState(() {
+      _fromDate = null;
+      _toDate = null;
+    });
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -454,56 +630,121 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                       'Filter',
                       leading: Icons.tune_rounded,
                       outlined: true,
+                      onTap: _onFilterTap,
                     ),
                   ],
                 ),
 
               if (!_isGuest) const SizedBox(height: 12),
 
-              // Title
-              const Text(
-                'Recent transactions',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.black,
+              // Show selected date range, if any
+              if (_fromDate != null && _toDate != null) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xffF0F2FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.date_range,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${_formatDate(_fromDate!)} → ${_formatDate(_toDate!)}',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                              color: AppColors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: _clearDateRange,
+                      tooltip: 'Clear date range',
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 12),
+              ],
+
+              // Dashed line with transaction count
+              Row(children: [Expanded(child: _buildDashedLine())]),
+              const SizedBox(height: 12),
+
+              // Title with transaction count
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent transactions',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  Text(
+                    '${_filteredTransactions.length} transactions',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
               // 👤 Guest User Placeholder
               if (_isGuest)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    vertical: size.height * 0.06,
-                    horizontal: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffF8F8F8),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.lock_outline_rounded,
-                        color: AppColors.primary.withOpacity(0.8),
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Sign in to see your transactions',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          color: Color(0xff707070),
-                          fontWeight: FontWeight.w400,
+                GestureDetector(
+                  onTap: () => _showSignupBottomSheet(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      vertical: size.height * 0.06,
+                      horizontal: 24,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF8F8F8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.primary.withOpacity(0.8),
+                          size: 48,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Sign in to see your transactions',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            color: Color(0xff707070),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               // 💸 Logged-in user list
@@ -557,24 +798,25 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                         horizontal: 16,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xffF8F8F8),
-                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0x143369FF), // 8% opacity primary
+                        borderRadius: BorderRadius.circular(100),
                       ),
                       child: Row(
                         children: [
                           Container(
                             width: 44,
                             height: 44,
-                            decoration: BoxDecoration(
-                              color: tx['type'] == 'Earned'
-                                  ? AppColors.primary
-                                  : Colors.redAccent,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.attach_money_rounded,
-                              color: Colors.white,
-                              size: 24,
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/total_points.png',
+                                width: 24,
+                                height: 24,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -593,7 +835,7 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${tx['date'].day}/${tx['date'].month}/${tx['date'].year}',
+                                  _formatPrettyDate(tx['date'] as DateTime),
                                   style: const TextStyle(
                                     fontFamily: 'Poppins',
                                     fontSize: 12,
@@ -604,14 +846,12 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                             ),
                           ),
                           Text(
-                            '${tx['type'] == 'Earned' ? '+' : '-'}${tx['currency']} ${tx['amount'].toStringAsFixed(2)}',
-                            style: TextStyle(
+                            _formatTrailingValue(tx),
+                            style: const TextStyle(
                               fontFamily: 'Poppins',
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: tx['type'] == 'Earned'
-                                  ? AppColors.primary
-                                  : Colors.redAccent,
+                              color: Color(0xFF909090),
                             ),
                           ),
                         ],
@@ -626,18 +866,25 @@ class _FiltersAndListState extends State<_FiltersAndList> {
     );
   }
 
-  Widget _chip(String text, {IconData? leading, bool outlined = false}) {
+  Widget _chip(
+    String text, {
+    IconData? leading,
+    bool outlined = false,
+    VoidCallback? onTap,
+  }) {
     final bool isSelected = _selectedChip == text;
     final bool isFilterChip = text == 'Filter';
 
     return GestureDetector(
-      onTap: isFilterChip
-          ? () {}
-          : () {
-              setState(() {
-                _selectedChip = text;
-              });
-            },
+      onTap:
+          onTap ??
+          (isFilterChip
+              ? () {}
+              : () {
+                  setState(() {
+                    _selectedChip = text;
+                  });
+                }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
@@ -675,6 +922,41 @@ class _FiltersAndListState extends State<_FiltersAndList> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDashedLine() {
+    return SizedBox(
+      height: 6, // line thickness
+      width: double.infinity,
+      child: Row(
+        children: [
+          // 60% Primary color
+          Expanded(
+            flex: 4,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(30),
+                ),
+              ),
+            ),
+          ),
+          // 40% Grey color
+          Expanded(
+            flex: 6,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(15),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

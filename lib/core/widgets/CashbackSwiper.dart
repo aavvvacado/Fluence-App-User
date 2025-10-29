@@ -204,12 +204,11 @@ class _CashbackSwiperState extends State<CashbackSwiper> {
           controller: _controller,
           count: _cards.length,
           effect: WormEffect(
-            // 👈 circular active dot
             activeDotColor: const Color(0xffD4AF37),
             dotColor: const Color(0xffD9D9D9),
             dotHeight: 10,
             dotWidth: 10,
-            radius: 10, // make sure this matches dot size to keep it circular
+            radius: 10,
           ),
         ),
       ],

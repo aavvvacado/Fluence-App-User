@@ -10,7 +10,6 @@ import 'core/utils/shared_preferences_service.dart';
 import 'di/injection_container.dart' as di;
 import 'di/injection_container.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
-import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/pages/create_account_screen.dart';
 import 'features/auth/presentation/pages/email_recovery_screen.dart';
@@ -25,7 +24,12 @@ import 'features/auth/presentation/pages/ready_screen.dart';
 import 'features/auth/presentation/pages/recovery_options_screen.dart';
 import 'features/auth/presentation/pages/start_screen.dart';
 import 'features/auth/presentation/pages/wallet_screen.dart';
+import 'features/auth/presentation/pages/qr_scan_screen.dart';
+import 'features/auth/presentation/pages/payment_amount_screen.dart';
+import 'features/auth/presentation/pages/payment_processing_screen.dart';
+import 'features/auth/presentation/pages/manual_code_entry_screen.dart';
 import 'features/guest/bloc/guest_bloc.dart';
+import 'core/bloc/notification_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,8 +85,11 @@ class AuthWrapper extends StatelessWidget {
 
           // Check if user is logged in from shared preferences
           if (SharedPreferencesService.isLoggedIn()) {
-            // Trigger auth check to verify Firebase session
-            context.read<AuthBloc>().add(const AuthCheckRequested());
+            // User is already logged in, go directly to home (skip Ready screen on refresh)
+            print('[AuthWrapper] User already logged in, navigating to /home');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.go('/home');
+            });
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
@@ -243,6 +250,55 @@ final _router = GoRouter(
             child,
       ),
     ),
+    // QR Payment Routes
+    GoRoute(
+      path: '/payment/scan',
+      pageBuilder: (context, state) => buildPageWithSlideTransition(
+        context: context,
+        state: state,
+        child: const QRScanScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/payment/enter-code',
+      pageBuilder: (context, state) => buildPageWithSlideTransition(
+        context: context,
+        state: state,
+        child: const ManualCodeEntryScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/payment/amount',
+      pageBuilder: (context, state) {
+        final Map<String, dynamic> extra =
+            state.extra as Map<String, dynamic>? ?? {};
+        return buildPageWithSlideTransition(
+          context: context,
+          state: state,
+          child: PaymentAmountScreen(
+            merchantName: extra['merchantName'] ?? 'Unknown Merchant',
+            merchantCode: extra['merchantCode'] ?? 'UNKNOWN',
+            merchantIcon: extra['merchantIcon'] ?? Icons.store,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/payment/processing',
+      pageBuilder: (context, state) {
+        final Map<String, dynamic> extra =
+            state.extra as Map<String, dynamic>? ?? {};
+        return buildPageWithSlideTransition(
+          context: context,
+          state: state,
+          child: PaymentProcessingScreen(
+            merchantName: extra['merchantName'] ?? 'Unknown Merchant',
+            merchantCode: extra['merchantCode'] ?? 'UNKNOWN',
+            amount: (extra['amount'] ?? 0.0).toDouble(),
+          ),
+        );
+      },
+    ),
   ],
 );
 
@@ -256,6 +312,7 @@ class FluenceApp extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => sl<AuthBloc>()),
         BlocProvider(create: (_) => GuestBloc()),
+        BlocProvider(create: (_) => sl<NotificationBloc>()),
       ],
       child: MaterialApp.router(
         title: 'Fluence Pay',

@@ -53,7 +53,7 @@ class SocialMediaSection extends StatelessWidget {
           _SocialMediaItem(
             imagePath: 'assets/coffee_club_logo.png',
             platform: 'Instagram',
-            isLinked: false,
+            isVerfied: false,
             onTap: () {},
           ),
           // Added vertical space to separate the cards
@@ -61,19 +61,12 @@ class SocialMediaSection extends StatelessWidget {
 
           _SocialMediaItem(
             imagePath: 'assets/coffee_club_logo.png',
-            platform: 'Facebook',
-            isLinked: false,
+            platform: 'Tiktok',
+            isVerfied: false,
             onTap: () {},
           ),
           // Added vertical space to separate the cards
           const SizedBox(height: 12),
-
-          _SocialMediaItem(
-            imagePath: 'assets/coffee_club_logo.png',
-            platform: 'Twitter',
-            isLinked: false,
-            onTap: () {},
-          ),
         ],
       ),
     );
@@ -87,13 +80,13 @@ class SocialMediaSection extends StatelessWidget {
 class _SocialMediaItem extends StatelessWidget {
   final String imagePath;
   final String platform;
-  final bool isLinked;
+  final bool isVerfied;
   final VoidCallback onTap;
 
   const _SocialMediaItem({
     required this.imagePath,
     required this.platform,
-    required this.isLinked,
+    required this.isVerfied,
     required this.onTap,
   });
 
@@ -164,12 +157,14 @@ class _SocialMediaItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isLinked ? 'Linked' : 'Not linked',
+                      isVerfied ? 'Verified' : 'Not verified',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: isLinked ? AppColors.success : Color(0xff868686),
+                        color: isVerfied
+                            ? AppColors.success
+                            : Color(0xff868686),
                       ),
                     ),
                   ],
@@ -185,13 +180,14 @@ class _SocialMediaItem extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: AppColors.primary, // circle border color
-                    width: 2, // thickness of border
+                    width: 1.8, // thickness of border
                   ),
                 ),
                 child: const Icon(
                   Icons.add,
-                  color: AppColors.primary, // plus color
-                  size: 16, // smaller icon
+                  color: AppColors.primary,
+                  // plus color
+                  size: 22, // smaller icon
                 ),
               ),
             ],
