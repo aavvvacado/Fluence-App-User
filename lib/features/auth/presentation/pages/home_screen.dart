@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluence/features/auth/presentation/pages/start_screen.dart';
+import 'package:fluence/features/auth/presentation/pages/top_merchants_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/bloc/notification_bloc.dart';
+import '../../../../core/bloc/points_stats_bloc.dart';
+import '../../../../core/bloc/wallet_balance_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/models/merchant.dart';
 import '../../../../core/models/merchant_card.dart';
@@ -11,14 +15,13 @@ import '../../../../core/models/promo_item.dart';
 import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/shared_preferences_service.dart';
 import '../../../../core/widgets/CashbackSwiper.dart';
-// Removed DiscountPromoSection globally as per requirement
-import '../../../../core/widgets/searchable_discover_merchants_section.dart';
 import '../../../../core/widgets/fluence_card.dart';
 import '../../../../core/widgets/home_bottom_nav_bar.dart';
 import '../../../../core/widgets/home_header.dart';
+// Removed DiscountPromoSection globally as per requirement
+import '../../../../core/widgets/searchable_discover_merchants_section.dart';
 import '../../../../core/widgets/top_merchants_section.dart';
 import '../../../guest/presentation/guest_guard.dart';
-import '../../../../core/bloc/notification_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -36,19 +39,17 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _merchantsError;
   bool _isMerchantsExpanded = false;
 
-  int? _totalPoints;
-  bool _loadingPoints = true;
-  String? _pointsError;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _showProfileCompletionIfNeeded(),
     );
+    // Fetch active merchants for both guests and logged-in users (public API)
+    _fetchActiveMerchants();
     if (!SharedPreferencesService.isGuest()) {
-      _fetchActiveMerchants();
-      _fetchTotalPoints();
+      // Load wallet balance (for Fluence card total points)
+      context.read<WalletBalanceBloc>().add(const LoadWalletBalance());
       // Load unread notification count
       context.read<NotificationBloc>().add(const LoadUnreadCount());
     } else {
@@ -85,8 +86,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ];
       _isLoadingMerchants = false;
-      _totalPoints = 0;
-      _loadingPoints = false;
     }
   }
 
@@ -112,7 +111,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 _shownProfileCompletionBottomSheet = true;
                 if (!SharedPreferencesService.isGuest()) {
                   await _fetchActiveMerchants();
-                  await _fetchTotalPoints();
+                  // Refresh points stats using BLoC
+                  context.read<PointsStatsBloc>().add(
+                    const RefreshPointsStats(),
+                  );
                 }
                 if (mounted) setState(() {});
               },
@@ -130,11 +132,28 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final data = await ApiService.fetchActiveMerchants();
-      // Map API data to Merchant model
+      // Map API data to Merchant model for Top Merchants
       List<Merchant> merchants = (data as List).map((item) {
         // Defensive: Provide fallback if some fields missing
-        String name = item['name'] ?? 'Unknown';
-        String category = item['category'] ?? 'Misc';
+        final dynamic d = item;
+        String name =
+            (d['businessName'] ??
+                    d['business_name'] ??
+                    d['name'] ??
+                    d['title'] ??
+                    '')
+                .toString()
+                .trim();
+        String category =
+            (d['businessType'] ??
+                    d['business_type'] ??
+                    d['category'] ??
+                    d['type'] ??
+                    '')
+                .toString()
+                .trim();
+        if (name.isEmpty) name = 'Unknown';
+        if (category.isEmpty) category = 'Misc';
         // Choose icon/color by category, fallback if not present
         IconData icon;
         Color color;
@@ -156,14 +175,54 @@ class _HomeScreenState extends State<HomeScreen> {
             color = Colors.blueGrey;
         }
         return Merchant(
+          id: d['id']?.toString() ?? d['_id']?.toString(),
           name: name,
           category: category,
           icon: icon,
           color: color,
         );
       }).toList();
+      // Map to discover merchant cards (with details)
+      List<MerchantCard> discover = (data as List).map((item) {
+        final dynamic d = item;
+        String name =
+            (d['businessName'] ?? d['business_name'] ?? d['name'] ?? '')
+                .toString()
+                .trim();
+        String type =
+            (d['businessType'] ?? d['business_type'] ?? d['category'] ?? '')
+                .toString()
+                .trim();
+        final String? email = d['contactEmail']?.toString();
+        final String? desc = (d['businessDescription'] ?? d['description'])
+            ?.toString();
+        final String? logo = (d['imageUrl'] ?? d['logoUrl'] ?? d['logo'])
+            ?.toString();
+        if (name.isEmpty) name = 'Unknown';
+        if (type.isEmpty) type = 'Misc';
+        return MerchantCard(
+          businessName: name,
+          category: type,
+          contactEmail: email,
+          description: desc,
+          imageUrl: logo,
+        );
+      }).toList();
+      // Derive categories from businessType dynamically (plus All)
+      final Set<String> cats = {'All'};
+      for (final item in data as List) {
+        final type =
+            ((item as dynamic)['businessType'] ??
+                    (item as dynamic)['business_type'] ??
+                    '')
+                .toString()
+                .trim();
+        if (type.isNotEmpty) cats.add(type);
+      }
       setState(() {
         _topMerchants = merchants;
+        _discoverMerchants = discover;
+        _categories = cats.toList();
         _isLoadingMerchants = false;
       });
     } catch (e) {
@@ -175,31 +234,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _fetchTotalPoints() async {
-    setState(() {
-      _loadingPoints = true;
-      _pointsError = null;
-    });
-    try {
-      final result = await ApiService.fetchTotalPointsEarned();
-      setState(() {
-        _totalPoints = result;
-        _loadingPoints = false;
-      });
-    } catch (e) {
-      setState(() {
-        _pointsError = 'Failed to load points.';
-        _loadingPoints = false;
-      });
-    }
-  }
-
   void _onNotificationTap(BuildContext context) {
     if (SharedPreferencesService.isGuest()) {
       showSignInRequiredSheet(context);
       return;
     }
-    
+
     // Navigate to full-screen notification list
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -209,12 +249,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Mock data - will be replaced with API calls
-  final List<MerchantCard> _discoverMerchants = [
-    const MerchantCard(category: 'Shoes', imagePath: 'assets/images/1.png'),
-    const MerchantCard(category: 'Apparel', imagePath: 'assets/images/2.png'),
-    const MerchantCard(category: 'Food', imagePath: 'assets/images/2.png'),
-  ];
+  // Discover merchants populated from /api/profiles/active
+  List<MerchantCard> _discoverMerchants = [];
 
   final List<PromoItem> _promoItems = [
     const PromoItem(
@@ -231,12 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   ];
 
-  final List<String> _categories = [
-    'All',
-    'Apparel',
-    'Food & Beverages',
-    'Fitness',
-  ];
+  List<String> _categories = ['All'];
 
   @override
   Widget build(BuildContext context) {
@@ -248,9 +279,12 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
+            await _fetchActiveMerchants();
             if (!SharedPreferencesService.isGuest()) {
-              await _fetchActiveMerchants();
-              await _fetchTotalPoints();
+              // Refresh wallet balance using BLoC
+              context.read<WalletBalanceBloc>().add(
+                const RefreshWalletBalance(),
+              );
             }
             setState(() {});
           },
@@ -262,22 +296,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 Stack(
                   children: [
                     // Background Image
-                    Container(
-                      height:
-                          MediaQuery.of(context).size.height *
-                          0.28, // Increased height to accommodate all content
-                      width: double.infinity,
-                      child: Image.asset(
-                        'assets/images/android.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                            ),
-                          );
-                        },
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final Size screen = MediaQuery.of(context).size;
+                        final double headerHeight = (screen.height * 0.34)
+                            .clamp(260.0, 420.0);
+                        return SizedBox(
+                          height: headerHeight, // responsive header height
+                          width: double.infinity,
+                          child: Image.asset(
+                            'assets/images/android.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                     // Header content
                     Positioned(
@@ -290,30 +329,56 @@ class _HomeScreenState extends State<HomeScreen> {
                         onNotificationTap: () => _onNotificationTap(context),
                       ),
                     ),
-                    // Fluence Card positioned on the image
-                    Positioned(
-                      top: 120,
-                      left: 24,
-                      right: 24,
-                      child: SharedPreferencesService.isGuest()
-                          ? FluenceCard(
-                              points: 0,
-                              backgroundImagePath: null,
-                              message:
-                                  'to check your fluence score just sign in',
-                              onTap: () => showSignInRequiredSheet(context),
-                            )
-                          : (_loadingPoints
-                                ? const SizedBox(
-                                    height: 140,
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  )
-                                : FluenceCard(
-                                    points: _totalPoints ?? 0,
-                                    backgroundImagePath: null,
-                                  )),
+                    // Fluence Card positioned on the image (responsive)
+                    Builder(
+                      builder: (context) {
+                        final Size screen = MediaQuery.of(context).size;
+                        final double headerHeight = (screen.height * 0.4).clamp(
+                          265.0,
+                          429.0,
+                        );
+                        final double desiredTop = headerHeight * 0.46;
+                        final double maxTop = headerHeight > 200
+                            ? (headerHeight - 120)
+                            : 80.0;
+                        final double fluenceTop = desiredTop.clamp(
+                          80.0,
+                          maxTop,
+                        );
+                        return Positioned(
+                          top: fluenceTop,
+                          left: 24,
+                          right: 24,
+                          child: BlocBuilder<WalletBalanceBloc, WalletBalanceState>(
+                            builder: (context, state) {
+                              if (SharedPreferencesService.isGuest()) {
+                                return FluenceCard(
+                                  points: 0,
+                                  backgroundImagePath: null,
+                                  message:
+                                      'to check your fluence score just sign in',
+                                  onTap: () => showSignInRequiredSheet(context),
+                                );
+                              }
+                              if (state.loading) {
+                                return const SizedBox(
+                                  height: 140,
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+                              // Use availableBalance as TOTAL POINTS (integer)
+                              final int points =
+                                  state.balance?.availableBalance.toInt() ?? 0;
+                              return FluenceCard(
+                                points: points,
+                                backgroundImagePath: null,
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
 
                     // Cashback Swiper positioned on the image
@@ -341,10 +406,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ] else ...[
                   TopMerchantsSection(
                     merchants: _topMerchants,
-                    isExpanded: _isMerchantsExpanded,
+                    isExpanded: false,
                     onViewAll: () {
-                      setState(
-                        () => _isMerchantsExpanded = !_isMerchantsExpanded,
+                      context.push(
+                        TopMerchantsScreen.path,
+                        extra: _topMerchants,
                       );
                     },
                   ),
@@ -737,10 +803,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: AppColors.black,
-          ),
+          icon: const Icon(Icons.arrow_back_ios, color: AppColors.black),
         ),
         title: const Text(
           'Notifications',
@@ -797,9 +860,11 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                         ],
                       ),
                     );
-                    
+
                     if (shouldMarkAll == true) {
-                      context.read<NotificationBloc>().add(const MarkAllAsRead());
+                      context.read<NotificationBloc>().add(
+                        const MarkAllAsRead(),
+                      );
                     }
                   },
                   child: const Text(
@@ -833,83 +898,24 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
         },
         child: BlocBuilder<NotificationBloc, NotificationState>(
           builder: (context, state) {
-          if (state is NotificationLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-              ),
-            );
-          } else if (state is NotificationError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 80,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Oops! Something went wrong',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    state.message,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      context.read<NotificationBloc>().add(const LoadNotifications());
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Try Again'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          } else if (state is NotificationLoaded) {
-            if (state.notifications.isEmpty) {
+            if (state is NotificationLoading) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              );
+            } else if (state is NotificationError) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.notifications_none,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 80,
+                      color: Colors.red,
                     ),
                     const SizedBox(height: 24),
-                    const Text(
-                      'No notifications yet',
-                      style: TextStyle(
+                    Text(
+                      'Oops! Something went wrong',
+                      style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -917,230 +923,300 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'We\'ll notify you when something exciting happens!',
-                      style: TextStyle(
+                    Text(
+                      state.message,
+                      style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 16,
                         color: Colors.grey,
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        context.read<NotificationBloc>().add(
+                          const LoadNotifications(),
+                        );
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try Again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               );
-            }
-            
-            return RefreshIndicator(
-              onRefresh: () async {
-                context.read<NotificationBloc>().add(const RefreshNotifications());
-              },
-              color: AppColors.primary,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: state.notifications.length,
-                itemBuilder: (context, index) {
-                  final notification = state.notifications[index];
-                  return Dismissible(
-                    key: Key(notification.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    confirmDismiss: (direction) async {
-                      return await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text(
-                            'Delete Notification',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          content: const Text(
-                            'Are you sure you want to delete this notification?',
-                            style: TextStyle(fontFamily: 'Poppins'),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(false),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
+            } else if (state is NotificationLoaded) {
+              if (state.notifications.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          shape: BoxShape.circle,
                         ),
-                      );
-                    },
-                    onDismissed: (direction) {
-                      context.read<NotificationBloc>().add(
-                        DeleteNotification(notification.id),
-                      );
-                    },
-                    child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
+                        child: const Icon(
+                          Icons.notifications_none,
+                          size: 64,
+                          color: Colors.grey,
                         ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          if (!notification.isRead) {
-                            context.read<NotificationBloc>().add(
-                              MarkAsRead(notification.id),
-                            );
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Notification icon
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: notification.isRead 
-                                      ? Colors.grey[200] 
-                                      : AppColors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _getNotificationIcon(notification.type),
-                                  color: notification.isRead 
-                                      ? Colors.grey[600] 
-                                      : AppColors.primary,
-                                  size: 24,
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'No notifications yet',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'We\'ll notify you when something exciting happens!',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async {
+                  context.read<NotificationBloc>().add(
+                    const RefreshNotifications(),
+                  );
+                },
+                color: AppColors.primary,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: state.notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = state.notifications[index];
+                    return Dismissible(
+                      key: Key(notification.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      confirmDismiss: (direction) async {
+                        return await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text(
+                              'Delete Notification',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            content: const Text(
+                              'Are you sure you want to delete this notification?',
+                              style: TextStyle(fontFamily: 'Poppins'),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              // Notification content
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            notification.title,
-                                            style: TextStyle(
-                                              fontFamily: 'Poppins',
-                                              fontSize: 16,
-                                              fontWeight: notification.isRead 
-                                                  ? FontWeight.w500 
-                                                  : FontWeight.bold,
-                                              color: notification.isRead 
-                                                  ? Colors.grey[600] 
-                                                  : AppColors.black,
-                                            ),
-                                          ),
-                                        ),
-                                        if (!notification.isRead)
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: const BoxDecoration(
-                                              color: AppColors.primary,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      notification.message,
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 14,
-                                        color: Colors.grey,
-                                        height: 1.4,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _formatDate(notification.createdAt),
-                                      style: const TextStyle(
-                                        fontFamily: 'Poppins',
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Action buttons
-                              Column(
-                                children: [
-                                  if (!notification.isRead)
-                                    IconButton(
-                                      onPressed: () {
-                                        context.read<NotificationBloc>().add(
-                                          MarkAsRead(notification.id),
-                                        );
-                                      },
-                                      icon: const Icon(
-                                        Icons.check_circle_outline,
-                                        color: AppColors.primary,
-                                        size: 24,
-                                      ),
-                                    ),
-                                ],
                               ),
                             ],
                           ),
+                        );
+                      },
+                      onDismissed: (direction) {
+                        context.read<NotificationBloc>().add(
+                          DeleteNotification(notification.id),
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              if (!notification.isRead) {
+                                context.read<NotificationBloc>().add(
+                                  MarkAsRead(notification.id),
+                                );
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Notification icon
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: notification.isRead
+                                          ? Colors.grey[200]
+                                          : AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      _getNotificationIcon(notification.type),
+                                      color: notification.isRead
+                                          ? Colors.grey[600]
+                                          : AppColors.primary,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Notification content
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                notification.title,
+                                                style: TextStyle(
+                                                  fontFamily: 'Poppins',
+                                                  fontSize: 16,
+                                                  fontWeight:
+                                                      notification.isRead
+                                                      ? FontWeight.w500
+                                                      : FontWeight.bold,
+                                                  color: notification.isRead
+                                                      ? Colors.grey[600]
+                                                      : AppColors.black,
+                                                ),
+                                              ),
+                                            ),
+                                            if (!notification.isRead)
+                                              Container(
+                                                width: 8,
+                                                height: 8,
+                                                decoration: const BoxDecoration(
+                                                  color: AppColors.primary,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          notification.message,
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                            height: 1.4,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _formatDate(notification.createdAt),
+                                          style: const TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Action buttons
+                                  Column(
+                                    children: [
+                                      if (!notification.isRead)
+                                        IconButton(
+                                          onPressed: () {
+                                            context
+                                                .read<NotificationBloc>()
+                                                .add(
+                                                  MarkAsRead(notification.id),
+                                                );
+                                          },
+                                          icon: const Icon(
+                                            Icons.check_circle_outline,
+                                            color: AppColors.primary,
+                                            size: 24,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  );
-                },
-              ),
-            );
-          }
-          
-          return const SizedBox.shrink();
-        },
+                    );
+                  },
+                ),
+              );
+            }
+
+            return const SizedBox.shrink();
+          },
         ),
       ),
     );
@@ -1149,7 +1225,7 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
     if (difference.inDays > 0) {
       return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
     } else if (difference.inHours > 0) {

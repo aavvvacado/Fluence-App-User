@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/models/merchant.dart';
 import 'core/utils/custom_page_transition.dart';
 import 'core/utils/shared_preferences_service.dart';
 import 'di/injection_container.dart' as di;
@@ -28,8 +29,13 @@ import 'features/auth/presentation/pages/qr_scan_screen.dart';
 import 'features/auth/presentation/pages/payment_amount_screen.dart';
 import 'features/auth/presentation/pages/payment_processing_screen.dart';
 import 'features/auth/presentation/pages/manual_code_entry_screen.dart';
+import 'features/auth/presentation/pages/top_merchants_screen.dart';
+import 'features/auth/presentation/pages/merchant_detail_screen.dart';
 import 'features/guest/bloc/guest_bloc.dart';
 import 'core/bloc/notification_bloc.dart';
+import 'core/bloc/points_transactions_bloc.dart';
+import 'core/bloc/wallet_balance_bloc.dart';
+import 'core/bloc/points_stats_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +47,9 @@ void main() async {
   print(
     '[Main] FIREBASE_AUTH_ENDPOINT: ${dotenv.env['FIREBASE_AUTH_ENDPOINT']}',
   );
+
+  // Initialize SharedPreferences
+  await SharedPreferencesService.init();
 
   await Firebase.initializeApp();
   await di.init(); // Initialize Dependency Injection
@@ -56,19 +65,15 @@ class AuthWrapper extends StatelessWidget {
       listener: (context, state) async {
         print('[AuthWrapper] AuthBloc state: $state');
         if (state is AuthAuthenticated) {
-          print('[AuthWrapper] Navigating to ReadyScreen...');
-          // User is authenticated, go to Ready first
+          print('[AuthWrapper] Authenticated - navigating to /home');
+          // Ensure any prior guest session is cleared on real auth
           await SharedPreferencesService.clearGuestSession();
-          context.go(ReadyScreen.path);
+          // On normal login, go directly to Home (Ready is only for fresh signups)
+          context.go('/home');
         } else if (state is AuthUnauthenticated || state is AuthLogoutSuccess) {
-          // If we have a guest session, go to home; else, start screen
-          if (SharedPreferencesService.isGuest()) {
-            print('[AuthWrapper] Guest session detected; navigating to /home');
-            context.go('/home');
-          } else {
-            print('[AuthWrapper] Navigating to StartScreen...');
-            context.go(StartScreen.path);
-          }
+          // After logout, always go to start screen (guest session should be cleared)
+          print('[AuthWrapper] Unauthenticated/Logout - navigating to StartScreen...');
+          context.go(StartScreen.path);
         } else if (state is AuthSignUpSuccess) {
           print('[AuthWrapper] Signup complete; showing ReadyScreen.');
           await SharedPreferencesService.clearGuestSession();
@@ -95,8 +100,8 @@ class AuthWrapper extends StatelessWidget {
             );
           }
 
-          // Guest session shortcut
-          if (SharedPreferencesService.isGuest()) {
+          // Guest session shortcut (must have token + id)
+          if (SharedPreferencesService.hasGuestSession()) {
             // Directly show HomeScreen
             return const HomeScreen();
           }
@@ -250,6 +255,40 @@ final _router = GoRouter(
             child,
       ),
     ),
+    GoRoute(
+      path: TopMerchantsScreen.path,
+      pageBuilder: (context, state) {
+        final extra = state.extra;
+        final merchants = (extra is List) ? extra.cast() : <dynamic>[];
+        return buildPageWithSlideTransition(
+          context: context,
+          state: state,
+          child: TopMerchantsScreen(merchants: merchants.cast()),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/merchants/:id',
+      pageBuilder: (context, state) {
+        final extra = state.extra;
+        final merchant = (extra is Merchant) ? extra : null;
+        if (merchant == null) {
+          // If no merchant passed, create a fallback (shouldn't happen normally)
+          return buildPageWithSlideTransition(
+            context: context,
+            state: state,
+            child: const Scaffold(
+              body: Center(child: Text('Merchant not found')),
+            ),
+          );
+        }
+        return buildPageWithSlideTransition(
+          context: context,
+          state: state,
+          child: MerchantDetailScreen(merchant: merchant),
+        );
+      },
+    ),
     // QR Payment Routes
     GoRoute(
       path: '/payment/scan',
@@ -313,6 +352,9 @@ class FluenceApp extends StatelessWidget {
         BlocProvider(create: (_) => sl<AuthBloc>()),
         BlocProvider(create: (_) => GuestBloc()),
         BlocProvider(create: (_) => sl<NotificationBloc>()),
+        BlocProvider(create: (_) => sl<PointsTransactionsBloc>()),
+        BlocProvider(create: (_) => sl<WalletBalanceBloc>()),
+        BlocProvider(create: (_) => sl<PointsStatsBloc>()),
       ],
       child: MaterialApp.router(
         title: 'Fluence Pay',

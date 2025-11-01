@@ -1,9 +1,15 @@
 class MerchantCard {
-  final String category;
-  final String? imagePath;
+  final String businessName;
+  final String category; // mapped from businessType
+  final String? contactEmail;
+  final String? description;
+  final String? imageUrl; // optional future proofing
 
   const MerchantCard({
+    required this.businessName,
     required this.category,
-    this.imagePath,
+    this.contactEmail,
+    this.description,
+    this.imageUrl,
   });
 }

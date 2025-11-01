@@ -351,9 +351,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           },
                         ),
 
-                        const SizedBox(height: 18),
-
-                        // Cancel button
+                        const SizedBox(height: 24),
                         Center(
                           child: TextButton(
                             onPressed: () {
@@ -374,9 +372,157 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             ),
                           ),
                         ),
+                        // Or divider
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 1.5,
+                                color: Color(0xffb2b2b2),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: Text(
+                                'or',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w300,
+                                  color: Color(0xff202020),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                height: 1.5,
+                                color: Color(0xffb2b2b2),
+                              ),
+                            ),
+                          ],
+                        ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
 
+                        // Social Login Buttons
+                        BlocBuilder<AuthBloc, AuthState>(
+                          builder: (context, state) {
+                            final isLoading = state is AuthLoading;
+                            return Row(
+                              children: [
+                                // Google Sign In Button
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 56,
+                                    child: OutlinedButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : () {
+                                              context.read<AuthBloc>().add(
+                                                const AuthGoogleSignInRequested(),
+                                              );
+                                            },
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: Color(0xffF7F7F8),
+                                          width: 1.5,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        backgroundColor: Colors.white,
+                                      ),
+                                      child: isLoading
+                                          ? const SizedBox(
+                                              height: 24,
+                                              width: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: AppColors.primaryDark,
+                                              ),
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                // ✅ Replaced gradient G with asset image
+                                                Image.asset(
+                                                  'assets/images/google.png', // <-- your asset path
+                                                  width: 20,
+                                                  height: 20,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                const Text(
+                                                  'Google',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Poppins',
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 16,
+                                                    color: Color(0xff030229),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                // Facebook Sign In Button (Disabled for now)
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 56,
+                                    child: OutlinedButton(
+                                      onPressed: null, // Disabled
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(
+                                          color: Color(0xffF7F7F8),
+                                          width: 1.5,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        backgroundColor: Colors.white
+                                            .withOpacity(0.5),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Image.asset(
+                                            'assets/images/facebook.png', // your image path
+                                            width: 20,
+                                            height: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'Facebook',
+                                            style: TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 16,
+                                              color: Color(0xff030229),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+
+                        // Cancel button
+                        SizedBox(height: 10),
                         // ✅ Terms & Privacy clickable text
                         Center(
                           child: Wrap(

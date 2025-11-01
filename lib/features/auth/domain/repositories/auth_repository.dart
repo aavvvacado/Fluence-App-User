@@ -12,6 +12,7 @@ abstract class AuthRepository {
     String password,
     String phone,
   );
+  Future<Either<Failure, UserEntity>> signInWithGoogle();
   Future<Either<Failure, void>> resetPasswordWithEmail(String email);
   Future<Either<Failure, void>> sendPhoneOtp(String phoneNumber);
   Future<Either<Failure, void>> verifyPhoneOtp(String verificationId, String otp);

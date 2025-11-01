@@ -6,7 +6,13 @@ import '../services/merchant_search_service.dart';
 class MerchantCardMapper implements MerchantSearchMapper<MerchantCard> {
   @override
   String getSearchableText(MerchantCard merchant) {
-    return merchant.category;
+    final parts = [
+      merchant.businessName,
+      merchant.category,
+      merchant.contactEmail ?? '',
+      merchant.description ?? '',
+    ];
+    return parts.where((e) => e.isNotEmpty).join(' ');
   }
   
   @override

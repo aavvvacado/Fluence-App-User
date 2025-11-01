@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/models/merchant.dart';
+import 'merchant_detail_modal.dart';
 
 class TopMerchantsSection extends StatelessWidget {
   final List<Merchant> merchants;
@@ -74,7 +75,7 @@ class TopMerchantsSection extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: showMerchants.length,
             itemBuilder: (context, index) {
-              return _buildMerchantCard(showMerchants[index]);
+              return _buildMerchantCard(context, showMerchants[index]);
             },
           ),
         ],
@@ -82,23 +83,27 @@ class TopMerchantsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildMerchantCard(Merchant merchant) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x40000000), // #00000040
-            offset: const Offset(0, 2), // x = 0, y = 2
-            blurRadius: 4, // blur radius
-            spreadRadius: 0, // optional, default is 0
-          ),
-        ],
-      ),
-      child: Row(
+  Widget _buildMerchantCard(BuildContext context, Merchant merchant) {
+    return GestureDetector(
+      onTap: () {
+        showMerchantDetailDialog(context, merchant);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x40000000), // #00000040
+              offset: const Offset(0, 2), // x = 0, y = 2
+              blurRadius: 4, // blur radius
+              spreadRadius: 0, // optional, default is 0
+            ),
+          ],
+        ),
+        child: Row(
         children: [
           Container(
             width: 40,
@@ -137,6 +142,7 @@ class TopMerchantsSection extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

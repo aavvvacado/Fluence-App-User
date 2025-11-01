@@ -186,14 +186,14 @@ class _DiscoverMerchantsSectionState extends State<DiscoverMerchantsSection> {
             ),
             // ClipRRect is essential to ensure the image respects the
             // rounded corners of the BoxDecoration.
-            child: ClipRRect(
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 // Using AppColors.lightGrey for the placeholder background
                 color: AppColors.lightGrey,
-                child: merchant.imagePath != null
-                    ? Image.asset(
-                        merchant.imagePath!,
+                child: merchant.imageUrl != null
+                    ? Image.network(
+                        merchant.imageUrl!,
                         fit: BoxFit.cover, // Ensures the image fills the area
                         errorBuilder: (context, error, stackTrace) =>
                             _buildPlaceholderImage(),
@@ -206,7 +206,7 @@ class _DiscoverMerchantsSectionState extends State<DiscoverMerchantsSection> {
           // 2. The Text Content (No additional padding or box)
           const SizedBox(height: 8), // Space between image and category text
           Text(
-            merchant.category,
+            merchant.businessName,
             style: const TextStyle(
               fontFamily: 'Poppins',
               fontSize: 14, // Increased size for prominence
@@ -217,12 +217,12 @@ class _DiscoverMerchantsSectionState extends State<DiscoverMerchantsSection> {
           ),
           const SizedBox(height: 4),
           Text(
-            'MORE DETAIL',
-            style: TextStyle(
+            merchant.category,
+            style: const TextStyle(
               fontFamily: 'Poppins',
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w400,
-              color: AppColors.primary, // Using primary color for the link text
+              color: Color(0xff707070),
             ),
             textAlign: TextAlign.center,
           ),

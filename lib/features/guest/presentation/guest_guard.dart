@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/shared_preferences_service.dart';
 
-bool isGuestUser() => SharedPreferencesService.isGuest();
+bool isGuestUser() => SharedPreferencesService.hasGuestSession();
 
 Future<void> showSignInRequiredSheet(BuildContext context) async {
   await showModalBottomSheet(

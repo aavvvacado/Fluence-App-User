@@ -6,6 +6,7 @@ import '../features/auth/data/datasources/auth_remote_data_source_impl.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/auth/domain/usecases/get_current_user.dart';
+import '../features/auth/domain/usecases/google_sign_in.dart';
 import '../features/auth/domain/usecases/login.dart';
 import '../features/auth/domain/usecases/logout.dart';
 import '../features/auth/domain/usecases/sign_up.dart';
@@ -17,6 +18,9 @@ import '../features/auth/domain/usecases/verify_phone_otp.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../core/services/notification_service.dart';
 import '../core/bloc/notification_bloc.dart';
+import '../core/bloc/points_transactions_bloc.dart';
+import '../core/bloc/wallet_balance_bloc.dart';
+import '../core/bloc/points_stats_bloc.dart';
 
 final sl = GetIt.instance; // sl stands for Service Locator
 
@@ -28,6 +32,7 @@ Future<void> init() async {
   sl.registerFactory(() => AuthBloc(
     login: sl(),
     signUp: sl(),
+    googleSignInUseCase: sl(),
     logout: sl(),
     getCurrentUser: sl(),
     resetPasswordWithEmail: sl(),
@@ -36,10 +41,14 @@ Future<void> init() async {
   ));
 
   sl.registerFactory(() => NotificationBloc());
+  sl.registerFactory(() => PointsTransactionsBloc());
+  sl.registerFactory(() => WalletBalanceBloc());
+  sl.registerFactory(() => PointsStatsBloc());
 
   // Use cases
   sl.registerLazySingleton(() => Login(sl()));
   sl.registerLazySingleton(() => SignUp(sl()));
+  sl.registerLazySingleton(() => GoogleSignInUseCase(sl()));
   sl.registerLazySingleton(() => Logout(sl()));
   sl.registerLazySingleton(() => GetCurrentUser(sl()));
   sl.registerLazySingleton(() => CompleteProfile(sl()));

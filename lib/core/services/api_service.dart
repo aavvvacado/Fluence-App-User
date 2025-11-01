@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'dart:async';
 
 import '../utils/shared_preferences_service.dart';
 
@@ -40,13 +40,13 @@ class ApiService {
 
       final response = await http
           .post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      )
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(requestBody),
+          )
           .timeout(const Duration(seconds: 10));
 
       print('[ApiService] Response Status: ${response.statusCode}');
@@ -91,7 +91,7 @@ class ApiService {
       final requestBody = {
         'name': name,
         'phone': phone,
-        'dateOfBirth': dateOfBirth,
+        'date_of_birth': dateOfBirth,
         'email': email,
       };
 
@@ -100,14 +100,14 @@ class ApiService {
 
       final response = await http
           .post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: jsonEncode(requestBody),
-      )
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $authToken',
+            },
+            body: jsonEncode(requestBody),
+          )
           .timeout(const Duration(seconds: 10));
 
       print('[ApiService] Response Status: ${response.statusCode}');
@@ -154,14 +154,14 @@ class ApiService {
 
       final response = await http
           .post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $authToken',
-        },
-        body: jsonEncode(requestBody),
-      )
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $authToken',
+            },
+            body: jsonEncode(requestBody),
+          )
           .timeout(const Duration(seconds: 10));
 
       print('[ApiService] Response Status: ${response.statusCode}');
@@ -196,10 +196,7 @@ class ApiService {
       print('[ApiService] Testing API connection...');
       final url = Uri.parse('$_baseUrl/health');
       final response = await http
-          .get(
-        url,
-        headers: {'Accept': 'application/json'},
-      )
+          .get(url, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 8));
 
       print('[ApiService] Health check response: ${response.statusCode}');
@@ -225,6 +222,7 @@ class ApiService {
     } else {
       throw Exception('Failed to fetch merchants: \\${response.statusCode}');
     }
+    print(response.body);
   }
 
   static Future<Map<String, dynamic>> fetchCashbackCampaigns() async {
@@ -235,8 +233,9 @@ class ApiService {
       'Accept': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
-    final response =
-        await http.get(url, headers: headers).timeout(const Duration(seconds: 10));
+    final response = await http
+        .get(url, headers: headers)
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       // Return the full data object which contains { campaigns: [...], pagination: {...} }
@@ -255,13 +254,13 @@ class ApiService {
     print('[ApiService] Guest login URL: $url  deviceId=$deviceId');
     final response = await http
         .post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'deviceId': deviceId}),
-    )
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({'deviceId': deviceId}),
+        )
         .timeout(const Duration(seconds: 10));
     print(
       '[ApiService] Guest login status: ${response.statusCode} body: ${response.body}',
@@ -282,8 +281,9 @@ class ApiService {
       'Accept': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
-    final response =
-        await http.get(url, headers: headers).timeout(const Duration(seconds: 10));
+    final response = await http
+        .get(url, headers: headers)
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return (data['data']?['totalEarned'] ?? 0) as int;
@@ -300,13 +300,97 @@ class ApiService {
       'Accept': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
-    final response =
-        await http.get(url, headers: headers).timeout(const Duration(seconds: 10));
+    final response = await http
+        .get(url, headers: headers)
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return (data['data'] ?? {}) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to fetch wallet balance: ${response.statusCode}');
     }
+  }
+
+  /// Fetch merchant details and posts/reviews
+  static Future<Map<String, dynamic>> fetchMerchantDetails(
+    String merchantId,
+  ) async {
+    final base = dotenv.env['MERCHANT_SERVICE_URL'] ?? 'http://10.0.2.2:4003';
+    // Fetch all active profiles and pick the requested merchant by id
+    final url = Uri.parse('$base/api/profiles/active');
+    final token = SharedPreferencesService.getAuthToken();
+    final headers = {
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    try {
+      final response = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = (data['data'] ?? []) as List<dynamic>;
+        final match = list.cast<Map<String, dynamic>?>().firstWhere(
+              (m) => (m?["id"]?.toString() ?? '') == merchantId,
+              orElse: () => null,
+            );
+        if (match != null) return match;
+        throw Exception('Merchant not found');
+      } else {
+        throw Exception(
+          'Failed to fetch merchant details: ${response.statusCode}',
+        );
+      }
+    } on TimeoutException catch (e) {
+      print('[ApiService] Timeout fetching merchant details: $e');
+      rethrow;
+    } catch (e) {
+      print('[ApiService] Error fetching merchant details: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch merchant posts/reviews
+  static Future<List<dynamic>> fetchMerchantPosts(String merchantId) async {
+    final base = dotenv.env['MERCHANT_SERVICE_URL'] ?? 'http://10.0.2.2:4003';
+    // Try different possible endpoints
+    final possibleEndpoints = [
+      '$base/api/profiles/$merchantId/posts',
+      '$base/api/merchants/$merchantId/posts',
+      '$base/api/profiles/$merchantId/reviews',
+      '$base/api/merchants/$merchantId/reviews',
+    ];
+
+    final token = SharedPreferencesService.getAuthToken();
+    final headers = {
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    for (final endpoint in possibleEndpoints) {
+      try {
+        final url = Uri.parse(endpoint);
+        final response = await http
+            .get(url, headers: headers)
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return (data['data'] ?? data['posts'] ?? data['reviews'] ?? [])
+              as List<dynamic>;
+        }
+      } catch (e) {
+        // Try next endpoint
+        continue;
+      }
+    }
+
+    // If all endpoints fail, return empty list
+    print(
+      '[ApiService] No posts endpoint found for merchant $merchantId, returning empty list',
+    );
+    return [];
   }
 }

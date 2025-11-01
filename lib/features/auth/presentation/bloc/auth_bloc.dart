@@ -6,6 +6,7 @@ import '../../../../core/services/api_service.dart';
 import '../../../../core/services/phone_verification_service.dart';
 import '../../../../core/utils/shared_preferences_service.dart';
 import '../../domain/usecases/get_current_user.dart';
+import '../../domain/usecases/google_sign_in.dart';
 import '../../domain/usecases/login.dart';
 import '../../domain/usecases/logout.dart';
 import '../../domain/usecases/reset_password_with_email.dart';
@@ -18,6 +19,7 @@ import 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final Login login;
   final SignUp signUp;
+  final GoogleSignInUseCase googleSignInUseCase;
   final Logout logout;
   final GetCurrentUser getCurrentUser;
   final ResetPasswordWithEmail resetPasswordWithEmail;
@@ -27,6 +29,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({
     required this.login,
     required this.signUp,
+    required this.googleSignInUseCase,
     required this.logout,
     required this.getCurrentUser,
     required this.resetPasswordWithEmail,
@@ -35,6 +38,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }) : super(AuthInitial()) {
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthSignUpRequested>(_onSignUpRequested);
+    on<AuthGoogleSignInRequested>(_onGoogleSignInRequested);
     on<AuthRecoveryOptionSelected>(_onRecoveryOptionSelected);
     on<AuthResetPasswordWithEmailRequested>(_onResetPasswordWithEmailRequested);
     on<AuthSendPhoneOtpRequested>(_onSendPhoneOtpRequested);
@@ -92,6 +96,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       },
       (user) {
         print('[AuthBloc] SignUp Success: User ${user.email}');
+        emit(AuthSignUpSuccess(user: user));
+      },
+    );
+  }
+
+  void _onGoogleSignInRequested(
+    AuthGoogleSignInRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    print('[AuthBloc] Google Sign In Requested');
+    emit(AuthLoading());
+    final result = await googleSignInUseCase();
+    print('[AuthBloc] Google Sign In result: $result');
+    result.fold(
+      (failure) {
+        print('[AuthBloc] Google Sign In Failure: $failure');
+        emit(AuthError(failure: failure));
+      },
+      (user) {
+        print('[AuthBloc] Google Sign In Success: User ${user.email}');
         emit(AuthSignUpSuccess(user: user));
       },
     );
