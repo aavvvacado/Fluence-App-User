@@ -1,9 +1,13 @@
 import 'package:fluence/features/auth/presentation/pages/start_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/bloc/points_stats_bloc.dart';
+import '../../../../core/bloc/points_transactions_bloc.dart';
+import '../../../../core/bloc/wallet_balance_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/services/api_service.dart';
+import '../../../../core/models/points_transaction.dart';
 import '../../../../core/widgets/home_bottom_nav_bar.dart';
 import '../../../../core/widgets/wallet_header.dart';
 import '../../../guest/presentation/guest_guard.dart';
@@ -19,50 +23,22 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   int _selectedIndex = 2; // Wallet tab
-  double? _walletTotalBalance;
-  String? _walletCurrency;
-  bool _loadingWallet = true;
-  String? _walletError;
-
-  bool get _isGuest => isGuestUser();
 
   @override
   void initState() {
     super.initState();
     if (!isGuestUser()) {
-      _fetchWalletBalance();
-    } else {
-      _loadingWallet = false;
-      _walletTotalBalance = 0.0;
-      _walletCurrency = 'AED';
-    }
-  }
-
-  Future<void> _fetchWalletBalance() async {
-    setState(() {
-      _loadingWallet = true;
-      _walletError = null;
-    });
-    try {
-      final data = await ApiService.fetchWalletBalance();
-      setState(() {
-        _walletTotalBalance = (data['totalBalance'] as num?)?.toDouble() ?? 0.0;
-        _walletCurrency = data['currency'] as String? ?? '';
-        _loadingWallet = false;
-      });
-    } catch (e) {
-      setState(() {
-        _walletError = 'Failed to load wallet balance.';
-        _loadingWallet = false;
-        _walletTotalBalance = 0.0;
-        _walletCurrency = '';
-      });
+      // Load wallet balance using BLoC
+      context.read<WalletBalanceBloc>().add(const LoadWalletBalance());
+      // Load points stats using BLoC
+      context.read<PointsStatsBloc>().add(const LoadPointsStats());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final double headerHeight = MediaQuery.sizeOf(context).height * 0.24;
+    final Size screen = MediaQuery.sizeOf(context);
+    final double headerHeight = (screen.height * 0.24).clamp(200.0, 320.0);
     final double panelTopPosition = headerHeight - 60;
 
     return Scaffold(
@@ -79,7 +55,7 @@ class _WalletScreenState extends State<WalletScreen> {
               onBack: () => context.go('/home'),
               onMenu: () {},
               totalLabel:
-                  'Great job!\n Your 250 points can unlock ₹150\n cashback on exciting offers',
+                  ' Great job!\n Your 250 points can unlock 150\n cashback on exciting offers',
             ),
           ),
           // Scrollable content area - starts below header
@@ -91,9 +67,19 @@ class _WalletScreenState extends State<WalletScreen> {
             child: RefreshIndicator(
               onRefresh: () async {
                 if (!isGuestUser()) {
-                  await _fetchWalletBalance();
+                  // Refresh wallet balance using BLoC
+                  context.read<WalletBalanceBloc>().add(
+                    const RefreshWalletBalance(),
+                  );
+                  // Refresh points stats using BLoC
+                  context.read<PointsStatsBloc>().add(
+                    const RefreshPointsStats(),
+                  );
+                  // Refresh points transactions
+                  context.read<PointsTransactionsBloc>().add(
+                    const RefreshPointsTransactions(),
+                  );
                 }
-                setState(() {});
               },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -102,12 +88,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: _StatsPanel(
-                        totalBalance: _walletTotalBalance,
-                        currency: _walletCurrency,
-                        loading: _loadingWallet,
-                        isGuest: _isGuest,
-                      ),
+                      child: const _StatsPanel(),
                     ),
 
                     const SizedBox(height: 20),
@@ -216,20 +197,145 @@ class _WalletBalanceCard extends StatelessWidget {
 
 // =================== Widgets ===================
 
-class _StatsPanel extends StatelessWidget {
-  final double? totalBalance;
-  final String? currency;
-  final bool loading;
-  final bool isGuest;
-  const _StatsPanel({
-    this.totalBalance,
-    this.currency,
-    this.loading = false,
-    required this.isGuest,
-  });
+class _StatsPanel extends StatefulWidget {
+  const _StatsPanel();
+
+  @override
+  State<_StatsPanel> createState() => _StatsPanelState();
+}
+
+class _StatsPanelState extends State<_StatsPanel> {
+  bool _isPointsVisible = false; // Initially hidden
 
   @override
   Widget build(BuildContext context) {
+    final bool isGuest = isGuestUser();
+
+    // Show guest-specific UI instead of zeros
+    if (isGuest) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            _rowItem(
+              context,
+              imagePath: 'assets/images/total_points.png',
+              title: 'TOTAL POINTS',
+              trailing: GestureDetector(
+                onTap: () => showSignInRequiredSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Sign in to view',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _rowItem(
+              context,
+              imagePath: 'assets/images/pending.png',
+              title: 'PENDING',
+              trailing: GestureDetector(
+                onTap: () => showSignInRequiredSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Sign in to view',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _rowItem(
+              context,
+              imagePath: 'assets/images/money.png',
+              title: 'TRANSACTIONS',
+              trailing: GestureDetector(
+                onTap: () => showSignInRequiredSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Sign in to view',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: const Text(
+                'Sign in to unlock full features and view your stats!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Authenticated user UI - shows actual data
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -245,35 +351,75 @@ class _StatsPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _rowItem(
-            context,
-            imagePath: 'assets/images/total_points.png',
-            title: 'TOTAL POINTS',
-            trailing: loading
-                ? SizedBox(
+          // AVAILABLE POINTS - Using PointsStatsBloc with eye toggle
+          BlocBuilder<PointsStatsBloc, PointsStatsState>(
+            builder: (context, state) {
+              if (state.loading) {
+                return _rowItem(
+                  context,
+                  imagePath: 'assets/images/total_points.png',
+                  title: 'TOTAL POINTS',
+                  trailing: SizedBox(
                     height: 16,
                     width: 32,
                     child: Center(
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  )
-                : _pill(
-                    '${currency ?? ''} ${isGuest ? '0.00' : (totalBalance?.toStringAsFixed(2) ?? '0.00')}',
                   ),
+                );
+              }
+
+              final points = state.stats?.currentBalance ?? 0;
+
+              return _rowItem(
+                context,
+                imagePath: 'assets/images/total_points.png',
+                title: 'TOTAL POINTS',
+                trailing: _TotalPointsWithToggle(
+                  points: points,
+                  isVisible: _isPointsVisible,
+                  onToggle: () {
+                    setState(() {
+                      _isPointsVisible = !_isPointsVisible;
+                    });
+                  },
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
-          _rowItem(
-            context,
-            imagePath: 'assets/images/pending.png',
-            title: 'PENDING',
-            trailing: _pill('${currency ?? ''} 0.00'),
+          // PENDING - Using WalletBalanceBloc
+          BlocBuilder<WalletBalanceBloc, WalletBalanceState>(
+            builder: (context, state) {
+              return _rowItem(
+                context,
+                imagePath: 'assets/images/pending.png',
+                title: 'PENDING',
+                trailing: _pill(
+                  '${state.balance?.pendingBalance.toStringAsFixed(2) ?? '0.00'}',
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
-          _rowItem(
-            context,
-            imagePath: 'assets/images/money.png',
-            title: 'TRANSACTIONS',
-            trailing: _pill('0'),
+          // TRANSACTIONS - Using PointsTransactionsBloc for count
+          BlocBuilder<PointsTransactionsBloc, PointsTransactionsState>(
+            builder: (context, state) {
+              return _rowItem(
+                context,
+                imagePath: 'assets/images/money.png',
+                title: 'TRANSACTIONS',
+                trailing: state.loading
+                    ? SizedBox(
+                        height: 16,
+                        width: 32,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : _pill('${state.transactions.length}'),
+              );
+            },
           ),
           const SizedBox(height: 16),
           Container(
@@ -359,18 +505,79 @@ class _StatsPanel extends StatelessWidget {
 
   Widget _pill(String text) {
     return Container(
+      width: 80, // Fixed width to match other boxes
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.primary,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: const TextStyle(
           fontFamily: 'Poppins',
           fontSize: 15,
           fontWeight: FontWeight.w500,
           color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+// Widget for total points with eye toggle button
+class _TotalPointsWithToggle extends StatelessWidget {
+  final int points;
+  final bool isVisible;
+  final VoidCallback onToggle;
+
+  const _TotalPointsWithToggle({
+    required this.points,
+    required this.isVisible,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onToggle,
+      child: Container(
+        width: 80, // Fixed width to match other boxes
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary, // Golden/yellow background
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Points value (hidden or visible)
+            Text(
+              isVisible ? '$points' : '•••',
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Eye icon
+            Icon(
+              isVisible ? Icons.visibility : Icons.visibility_off,
+              color: Colors.white,
+              size: 18,
+            ),
+          ],
         ),
       ),
     );
@@ -394,6 +601,53 @@ class _FiltersAndListState extends State<_FiltersAndList> {
 
   // Check if user is guest using SharedPreferencesService
   bool get _isGuest => isGuestUser();
+  @override
+  void initState() {
+    super.initState();
+    if (!_isGuest) {
+      context.read<PointsTransactionsBloc>().add(
+        const LoadPointsTransactions(page: 1, limit: 50),
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> input) {
+    if (_isGuest) return [];
+    List<Map<String, dynamic>> list = List.of(input);
+    final now = DateTime.now();
+    if (_selectedChip == 'This week') {
+      list = list.where((tx) {
+        final diff = now.difference(tx['date']).inDays;
+        return diff <= 7;
+      }).toList();
+    } else if (_selectedChip == 'Last week') {
+      list = list.where((tx) {
+        final diff = now.difference(tx['date']).inDays;
+        return diff > 7 && diff <= 14;
+      }).toList();
+    }
+    if (_fromDate != null && _toDate != null) {
+      final DateTime from = DateTime(
+        _fromDate!.year,
+        _fromDate!.month,
+        _fromDate!.day,
+      );
+      final DateTime to = DateTime(
+        _toDate!.year,
+        _toDate!.month,
+        _toDate!.day,
+        23,
+        59,
+        59,
+      );
+      list = list.where((tx) {
+        final DateTime? date = tx['date'] as DateTime?;
+        if (date == null) return false;
+        return !date.isBefore(from) && !date.isAfter(to);
+      }).toList();
+    }
+    return list;
+  }
 
   // Transactions will be fetched from API in the future. No mock data.
 
@@ -594,7 +848,20 @@ class _FiltersAndListState extends State<_FiltersAndList> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredList = _filteredTransactions;
+    final txState = context.watch<PointsTransactionsBloc>().state;
+    // Map API model -> existing UI shape
+    final mapped = txState.transactions
+        .map(
+          (PointsTransaction t) => {
+            'title': t.description.isNotEmpty ? t.description : 'Points',
+            'points': t.points,
+            'date': t.createdAt,
+            'status': t.status,
+            'source': t.source,
+          },
+        )
+        .toList();
+    final filteredList = _applyFilters(mapped);
     final size = MediaQuery.of(context).size;
 
     return Column(
@@ -618,28 +885,34 @@ class _FiltersAndListState extends State<_FiltersAndList> {
             children: [
               // 🔸 Filter Chips Row (hide for guest)
               if (!_isGuest)
-                Row(
-                  children: [
-                    _chip('All time'),
-                    const SizedBox(width: 8),
-                    _chip('This week'),
-                    const SizedBox(width: 8),
-                    _chip('Last week'),
-                    const Spacer(),
-                    _chip(
-                      'Filter',
-                      leading: Icons.tune_rounded,
-                      outlined: true,
-                      onTap: _onFilterTap,
-                    ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      _chip('All time'),
+                      const SizedBox(width: 8),
+                      _chip('This week'),
+                      const SizedBox(width: 8),
+                      _chip('Last week'),
+                      const SizedBox(width: 8),
+                      _chip(
+                        'Filter',
+                        leading: Icons.tune_rounded,
+                        outlined: true,
+                        onTap: _onFilterTap,
+                      ),
+                    ],
+                  ),
                 ),
 
               if (!_isGuest) const SizedBox(height: 12),
 
               // Show selected date range, if any
               if (_fromDate != null && _toDate != null) ...[
-                Row(
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -669,7 +942,6 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.clear, size: 18),
                       onPressed: _clearDateRange,
@@ -698,7 +970,7 @@ class _FiltersAndListState extends State<_FiltersAndList> {
                     ),
                   ),
                   Text(
-                    '${_filteredTransactions.length} transactions',
+                    '${filteredList.length} transactions',
                     style: const TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 14,

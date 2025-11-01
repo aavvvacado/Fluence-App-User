@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/services/phone_verification_service.dart';
@@ -231,6 +232,71 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       debugPrint('Simulated OTP Verification Success');
     } else {
       throw ServerException(message: 'Invalid OTP.');
+    }
+  }
+
+  @override
+  Future<UserEntity> signInWithGoogle() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        throw ServerException(message: 'Google sign-in was cancelled.');
+      }
+      
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+      
+      final User? user = userCredential.user;
+      if (user == null) {
+        throw ServerException(message: 'Google sign in failed. Please try again.');
+      }
+      
+      // Get the ID token for authentication
+      final String? token = await user.getIdToken();
+      if (token == null) {
+        throw ServerException(message: 'Failed to get authentication token.');
+      }
+      
+      debugPrint('Google Sign In Success: ${user.email}');
+      return UserEntity(
+        id: user.uid,
+        email: user.email ?? '',
+        name: user.displayName ?? 'User',
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Firebase Google Sign In Error: ${e.message}');
+      String errorMessage = 'Google sign in failed. Please try again.';
+      
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          errorMessage = 'An account already exists with the same email but different sign-in credentials.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Invalid credential. Please try again.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'Google sign-in is not enabled. Please contact support.';
+          break;
+      }
+      
+      throw ServerException(message: errorMessage);
+    } catch (e) {
+      debugPrint('Unexpected Google Sign In Error: $e');
+      throw ServerException(message: 'An unexpected error occurred. Please try again.');
     }
   }
 

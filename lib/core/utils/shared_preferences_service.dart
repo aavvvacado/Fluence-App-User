@@ -97,6 +97,14 @@ class SharedPreferencesService {
   static String? getGuestId() => _prefs?.getString(_guestIdKey);
   static bool isGuest() => _prefs?.getBool(_isGuestKey) ?? false;
 
+  // Stronger check used for routing/guards: requires persisted id and token
+  static bool hasGuestSession() {
+    final hasFlag = _prefs?.getBool(_isGuestKey) ?? false;
+    final token = _prefs?.getString(_guestTokenKey);
+    final id = _prefs?.getString(_guestIdKey);
+    return hasFlag && token != null && token.isNotEmpty && id != null && id.isNotEmpty;
+  }
+
   static Future<void> clearGuestSession() async {
     await _prefs?.remove(_guestIdKey);
     await _prefs?.remove(_guestTokenKey);

@@ -18,12 +18,27 @@ class WalletHeader extends StatelessWidget {
     this.title = 'My Wallet',
     this.titleFontSize = 20,
     this.totalLabel =
-        'Great job!\n Your 250 points can unlock ₹150\n cashback on exciting offers',
+        '  Great job!\nYour 250 points can unlock 150\ncashback on exciting offers',
     this.totalAmount = '',
   });
 
   @override
   Widget build(BuildContext context) {
+    // Use the provided height and scale paddings/fonts responsively
+    final double headerHeight = height;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool veryCompact = headerHeight < 160;
+    final bool compact = headerHeight < 180;
+    final double topPadding = (headerHeight * 0.20).clamp(12.0, 40.0);
+    final double sidePadding = compact ? 20.0 : 25.0;
+    final double bottomPadding = (headerHeight * 0.05).clamp(6.0, 14.0);
+    final double messageFontSize = (headerHeight * 0.10)
+        .clamp(11.0, 18.0)
+        .clamp(11.0, screenWidth * 0.045);
+    final int messageMaxLines = veryCompact ? 1 : (compact ? 2 : 3);
+    final double badgeSize = (headerHeight * 0.36).clamp(40.0, 56.0);
+    final double badgeIconSize = (badgeSize * 0.54).clamp(18.0, 30.0);
+
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         bottomLeft: Radius.circular(32),
@@ -31,7 +46,7 @@ class WalletHeader extends StatelessWidget {
       ),
       child: SizedBox(
         width: double.infinity,
-        height: MediaQuery.of(context).size.height * 0.30,
+        height: headerHeight,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -44,9 +59,15 @@ class WalletHeader extends StatelessWidget {
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(25, 65, 25, 24),
+                padding: EdgeInsets.fromLTRB(
+                  sidePadding,
+                  topPadding,
+                  sidePadding,
+                  bottomPadding,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,9 +78,11 @@ class WalletHeader extends StatelessWidget {
                             children: [
                               Text(
                                 totalLabel,
-                                style: const TextStyle(
+                                maxLines: messageMaxLines,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
                                   fontFamily: 'Poppins',
-                                  fontSize: 19,
+                                  fontSize: messageFontSize,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.white,
                                 ),
@@ -69,8 +92,8 @@ class WalletHeader extends StatelessWidget {
                         ),
                         const SizedBox(width: 16),
                         Container(
-                          width: 56,
-                          height: 56,
+                          width: badgeSize,
+                          height: badgeSize,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               begin: Alignment.topCenter,
@@ -86,10 +109,10 @@ class WalletHeader extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.credit_card_rounded,
                             color: Colors.white,
-                            size: 30,
+                            size: badgeIconSize,
                           ),
                         ),
                       ],

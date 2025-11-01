@@ -1,11 +1,15 @@
-import 'dart:convert';
 import 'dart:async';
-import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+
+import '../models/wallet_balance.dart';
 import '../utils/shared_preferences_service.dart';
 
 class PaymentService {
-  static final String _baseUrl = dotenv.env['PAYMENT_SERVICE_URL'] ?? 'http://10.0.2.2:4005';
+  static final String _baseUrl =
+      dotenv.env['PAYMENT_SERVICE_URL'] ?? 'http://10.0.2.2:4005';
 
   /// Process a payment transaction
   static Future<Map<String, dynamic>> processPayment({
@@ -20,7 +24,7 @@ class PaymentService {
       }
 
       final url = Uri.parse('$_baseUrl/api/payments/process');
-      
+
       print('[PaymentService] Processing payment...');
       print('[PaymentService] Merchant Code: $merchantCode');
       print('[PaymentService] Amount: $amount');
@@ -80,7 +84,7 @@ class PaymentService {
       }
 
       final url = Uri.parse('$_baseUrl/api/merchants/$code');
-      
+
       print('[PaymentService] Fetching merchant: $code');
 
       final response = await http
@@ -126,15 +130,22 @@ class PaymentService {
   }
 
   /// Get user's wallet balance
-  static Future<Map<String, dynamic>> getWalletBalance() async {
+  static Future<WalletBalance> getBalance() async {
     try {
-      final token = SharedPreferencesService.getToken();
+      final token = SharedPreferencesService.getAuthToken();
       if (token == null || token.isEmpty) {
-        throw Exception('No authentication token found');
+        // Return default balance for guests or unauthenticated users
+        return WalletBalance(
+          totalBalance: 0.0,
+          availableBalance: 0.0,
+          pendingBalance: 0.0,
+          currency: '',
+          lastUpdated: DateTime.now(),
+        );
       }
 
       final url = Uri.parse('$_baseUrl/api/wallet/balance');
-      
+
       print('[PaymentService] Fetching wallet balance');
 
       final response = await http
@@ -155,7 +166,7 @@ class PaymentService {
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         if (responseData['success'] == true) {
           print('[PaymentService] Wallet balance fetched');
-          return responseData['data'] as Map<String, dynamic>;
+          return WalletBalance.fromJson(responseData);
         } else {
           throw Exception(
             'Failed to fetch balance: ${responseData['message'] ?? 'Unknown error'}',
@@ -177,12 +188,18 @@ class PaymentService {
     }
   }
 
+  /// Get user's wallet balance (legacy method for backward compatibility)
+  static Future<Map<String, dynamic>> getWalletBalance() async {
+    final balance = await getBalance();
+    return balance.toJson();
+  }
+
   /// Validate payment amount
   static Future<bool> validatePaymentAmount(double amount) async {
     try {
       final balance = await getWalletBalance();
       final availableBalance = (balance['availableBalance'] ?? 0.0).toDouble();
-      
+
       return amount > 0 && amount <= availableBalance;
     } catch (e) {
       print('[PaymentService] Error validating amount: $e');

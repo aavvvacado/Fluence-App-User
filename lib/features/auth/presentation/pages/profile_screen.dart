@@ -8,6 +8,7 @@ import '../../../../core/services/api_service.dart';
 import '../../../../core/utils/shared_preferences_service.dart';
 import '../../../../core/widgets/custom_app_button.dart';
 import '../../../../core/widgets/fluence_card.dart';
+import '../../../../core/bloc/points_stats_bloc.dart';
 import '../../../../core/widgets/home_bottom_nav_bar.dart';
 import '../../../../core/widgets/profile_header.dart';
 import '../../../../core/widgets/social_media_section.dart';
@@ -27,18 +28,13 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 3; // Profile tab
-  int? _totalPoints;
-  bool _loadingPoints = true;
-  String? _pointsError;
 
   @override
   void initState() {
     super.initState();
     if (!isGuestUser()) {
-      _fetchTotalPoints();
-    } else {
-      _totalPoints = 0;
-      _loadingPoints = false;
+      // Load points stats using BLoC
+      context.read<PointsStatsBloc>().add(const LoadPointsStats());
     }
   }
 
@@ -46,24 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     context.read<AuthBloc>().add(const AuthLogoutRequested());
   }
 
-  Future<void> _fetchTotalPoints() async {
-    setState(() {
-      _loadingPoints = true;
-      _pointsError = null;
-    });
-    try {
-      final result = await ApiService.fetchTotalPointsEarned();
-      setState(() {
-        _totalPoints = result;
-        _loadingPoints = false;
-      });
-    } catch (e) {
-      setState(() {
-        _pointsError = 'Failed to load points.';
-        _loadingPoints = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: RefreshIndicator(
             onRefresh: () async {
               if (!isGuestUser()) {
-                await _fetchTotalPoints();
+                // Refresh points stats using BLoC
+                context.read<PointsStatsBloc>().add(const RefreshPointsStats());
                 setState(() {});
               }
             },
@@ -138,17 +117,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           message: 'To check your fluence score just sign in',
                           onTap: () => showSignInRequiredSheet(context),
                         )
-                      : (_loadingPoints
-                            ? const SizedBox(
+                      : BlocBuilder<PointsStatsBloc, PointsStatsState>(
+                          builder: (context, state) {
+                            if (state.loading) {
+                              return const SizedBox(
                                 height: 140,
                                 child: Center(
                                   child: CircularProgressIndicator(),
                                 ),
-                              )
-                            : FluenceCard(
-                                points: _totalPoints ?? 0,
-                                backgroundImagePath: null,
-                              )),
+                              );
+                            }
+                            return FluenceCard(
+                              points: state.stats?.currentBalance ?? 0,
+                              backgroundImagePath: null,
+                            );
+                          },
+                        ),
                   const SizedBox(height: 24),
 
                   // Social Media Profiles Section

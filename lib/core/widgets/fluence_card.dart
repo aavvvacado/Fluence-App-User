@@ -183,7 +183,7 @@ class _CardContent extends StatelessWidget {
               Flexible(
                 flex: 2,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.only(left: 2),
                   child: FittedBox(
                     alignment: Alignment.centerLeft,
                     fit: BoxFit.scaleDown,
@@ -194,19 +194,8 @@ class _CardContent extends StatelessWidget {
                           'Fluence Score',
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Total points earned',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
+                            fontSize: 25,
+                            fontWeight: FontWeight.w600,
                             color: Colors.white,
                             letterSpacing: 0,
                           ),
@@ -236,7 +225,16 @@ class _CardContent extends StatelessWidget {
                             ),
                             textAlign: TextAlign.right,
                           )
-                        : _PointsDisplay(points: points),
+                        : Text(
+                            '100',
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 28,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
                   ),
                 ),
               ),
@@ -299,15 +297,6 @@ class _PointsDisplay extends StatelessWidget {
             fontFamily: 'Poppins',
             fontSize: 28,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
-        const Text(
-          'points',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
             color: Colors.white,
           ),
         ),

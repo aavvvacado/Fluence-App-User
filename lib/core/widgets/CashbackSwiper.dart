@@ -1,7 +1,9 @@
+ 
+
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
-import '../../core/services/api_service.dart';
+ 
 import '../../core/utils/shared_preferences_service.dart';
 import '../../core/widgets/cashback_earned_card.dart';
 import '../../features/guest/presentation/guest_guard.dart';
@@ -22,59 +24,13 @@ class _CashbackSwiperState extends State<CashbackSwiper> {
   @override
   void initState() {
     super.initState();
-    if (SharedPreferencesService.isGuest()) {
-      setState(() {
-        _cards = [];
-        _loading = false;
-      });
-    } else {
-      _fetchCampaigns();
-    }
-  }
-
-  Future<void> _fetchCampaigns() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      _cards = [];
+      _loading = false;
     });
-    try {
-      final data = await ApiService.fetchCashbackCampaigns();
-      print('[CashbackSwiper] Raw campaign data: $data'); // Debug log
-
-      // API returns: { campaigns: [...], pagination: {...} }
-      final campaignsList = data['campaigns'] as List? ?? [];
-
-      // Map campaigns to card format
-      List<Map<String, dynamic>> cards = campaignsList
-          .where((d) => d['cashbackPercentage'] != null)
-          .map((d) {
-            // Extract campaign data
-            final cashbackPct = d['cashbackPercentage'] as num? ?? 0;
-            final name = d['name'] as String? ?? '';
-
-            return {
-              'amount': cashbackPct
-                  .toInt(), // Use cashback percentage as amount
-              'currency': '%', // Show as percentage
-              'name': name, // Store campaign name
-            };
-          })
-          .toList();
-
-      print('[CashbackSwiper] Mapped cards: $cards'); // Debug log
-
-      setState(() {
-        _cards = cards;
-        _loading = false;
-      });
-    } catch (e) {
-      print('[CashbackSwiper] Error fetching campaigns: $e'); // Debug log
-      setState(() {
-        _error = 'Failed to load cashback campaigns';
-        _loading = false;
-      });
-    }
   }
+
+  
 
   @override
   void dispose() {
@@ -146,7 +102,7 @@ class _CashbackSwiperState extends State<CashbackSwiper> {
     if (_cards.isEmpty) {
       // Non-guest empty fallback: three cards with same design as guest mode
       final fallbackCards = [
-        {'amount': 0, 'title': 'Total Points'},
+        {'amount': 0, 'title': 'Available Balance'},
         {'amount': 0, 'title': 'Number of Visits'},
         {'amount': 0, 'title': 'Referrals'},
       ];

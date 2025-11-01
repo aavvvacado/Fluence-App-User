@@ -26,6 +26,7 @@ dependencies:
   equatable:
   firebase_core:
   firebase_auth:
+  google_sign_in: ^6.1.6
   cloud_firestore:
   shared_preferences:
   flutter_dotenv:
@@ -45,6 +46,7 @@ dependencies:
   pin_code_fields:  # For the PIN input screen
   country_code_picker: ^3.4.1
   smooth_page_indicator:
+  intl: ^0.19.0  # For date formatting
 
 dev_dependencies:
   flutter_test:

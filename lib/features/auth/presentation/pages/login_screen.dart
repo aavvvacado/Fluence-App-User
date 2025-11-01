@@ -217,53 +217,69 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          // Dropdown for Email/Phone selection - RIGHT SIDE
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedAuthOption,
-                isDense: true,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 14,
-                  color: AppColors.darkGrey,
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Email',
-                    child: Text('Email'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Phone',
-                    child: Text('Number'),
-                  ),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _selectedAuthOption = val!;
-                    _inputController.clear();
-                    _errorText = null;
-                  });
-                },
-                icon: const Icon(
-                  Icons.keyboard_arrow_down,
-                  color: AppColors.darkGrey,
-                  size: 20,
-                ),
-                // Hide the selected value text, only show icon
-                selectedItemBuilder: (BuildContext context) {
-                  return <Widget>[
-                    const SizedBox.shrink(), // Hide "Email" text
-                    const SizedBox.shrink(), // Hide "Number" text
-                  ];
-                },
-              ),
+          // Auth option selector (opens bottom sheet instead of cramped dropdown)
+          IconButton(
+            onPressed: _showAuthOptionPicker,
+            icon: const Icon(
+              Icons.keyboard_arrow_down,
+              color: AppColors.darkGrey,
+              size: 22,
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _showAuthOptionPicker() async {
+    final String? picked = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Login with',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+                  title: const Text('Email', style: TextStyle(fontFamily: 'Poppins')),
+                  onTap: () => Navigator.of(context).pop('Email'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.phone_outlined, color: AppColors.primary),
+                  title: const Text('Phone Number', style: TextStyle(fontFamily: 'Poppins')),
+                  onTap: () => Navigator.of(context).pop('Phone'),
+                ),
+                const SizedBox(height: 6),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedAuthOption) {
+      setState(() {
+        _selectedAuthOption = picked;
+        _inputController.clear();
+        _errorText = null;
+      });
+    }
   }
 
   Widget _buildNextButton() {

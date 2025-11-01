@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../features/guest/presentation/guest_guard.dart';
 import '../bloc/merchant_search_bloc.dart';
 import '../constants/app_colors.dart';
-import '../models/merchant_card.dart';
 import '../mappers/merchant_card_mapper.dart';
+import '../models/merchant.dart';
+import '../models/merchant_card.dart';
 import '../services/merchant_search_service.dart';
-import '../../../features/guest/presentation/guest_guard.dart';
+import 'merchant_detail_modal.dart';
 
 /// Enhanced discover merchants section with search functionality
 /// Follows Single Responsibility Principle (SRP)
@@ -30,10 +32,11 @@ class SearchableDiscoverMerchantsSection extends StatefulWidget {
 class _SearchableDiscoverMerchantsSectionState
     extends State<SearchableDiscoverMerchantsSection> {
   final TextEditingController _searchController = TextEditingController();
-  final MerchantSearchBloc<MerchantCard> _searchBloc = MerchantSearchBloc<MerchantCard>(
-    searchService: MerchantSearchServiceImpl(),
-    mapper: MerchantCardMapper(),
-  );
+  final MerchantSearchBloc<MerchantCard> _searchBloc =
+      MerchantSearchBloc<MerchantCard>(
+        searchService: MerchantSearchServiceImpl(),
+        mapper: MerchantCardMapper(),
+      );
   String _selectedCategory = 'All';
 
   @override
@@ -44,6 +47,22 @@ class _SearchableDiscoverMerchantsSectionState
   }
 
   @override
+  void didUpdateWidget(covariant SearchableDiscoverMerchantsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.merchants != widget.merchants) {
+      // Update source list when new data arrives
+      _searchBloc.setMerchants(widget.merchants);
+      // Re-run current filter to avoid empty state on category tap
+      _searchBloc.add(
+        SearchMerchants(
+          query: _searchController.text,
+          category: _selectedCategory,
+        ),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _searchBloc.close();
@@ -51,20 +70,21 @@ class _SearchableDiscoverMerchantsSectionState
   }
 
   void _onSearchChanged() {
-    _searchBloc.add(SearchMerchants(
-      query: _searchController.text,
-      category: _selectedCategory,
-    ));
+    _searchBloc.add(
+      SearchMerchants(
+        query: _searchController.text,
+        category: _selectedCategory,
+      ),
+    );
   }
 
   void _onCategorySelected(String category) {
     setState(() {
       _selectedCategory = category;
     });
-    _searchBloc.add(SearchMerchants(
-      query: _searchController.text,
-      category: category,
-    ));
+    _searchBloc.add(
+      SearchMerchants(query: _searchController.text, category: category),
+    );
   }
 
   @override
@@ -113,16 +133,10 @@ class _SearchableDiscoverMerchantsSectionState
           controller: _searchController,
           decoration: const InputDecoration(
             hintText: 'Search merchants...',
-            hintStyle: TextStyle(
-              fontFamily: 'Poppins',
-              color: AppColors.white,
-            ),
+            hintStyle: TextStyle(fontFamily: 'Poppins', color: AppColors.white),
             prefixIcon: Icon(Icons.search, color: AppColors.white),
             border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 15,
-            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ),
@@ -158,7 +172,9 @@ class _SearchableDiscoverMerchantsSectionState
                     fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? AppColors.primary : const Color(0xff3E3E3E),
+                    color: isSelected
+                        ? AppColors.primary
+                        : const Color(0xff3E3E3E),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -212,11 +228,7 @@ class _SearchableDiscoverMerchantsSectionState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.search_off,
-                    size: 48,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
                     'No merchants found',
@@ -233,7 +245,7 @@ class _SearchableDiscoverMerchantsSectionState
         }
 
         return SizedBox(
-          height: 200,
+          height: 210,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -254,6 +266,15 @@ class _SearchableDiscoverMerchantsSectionState
           showSignInRequiredSheet(context);
           return;
         }
+        // Show the same detail dialog used elsewhere, mapping MerchantCard -> Merchant
+        final placeholder = Merchant(
+          id: null, // no id available from discover card
+          name: merchant.businessName,
+          category: merchant.category,
+          icon: Icons.store,
+          color: AppColors.primary,
+        );
+        showMerchantDetailDialog(context, placeholder);
         widget.onMerchantTap?.call();
       },
       child: Container(
@@ -263,7 +284,7 @@ class _SearchableDiscoverMerchantsSectionState
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              height: 150,
+              height: 140,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
@@ -273,9 +294,9 @@ class _SearchableDiscoverMerchantsSectionState
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   color: AppColors.lightGrey,
-                  child: merchant.imagePath != null
-                      ? Image.asset(
-                          merchant.imagePath!,
+                  child: merchant.imageUrl != null
+                      ? Image.network(
+                          merchant.imageUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               _buildPlaceholderImage(),
@@ -284,9 +305,9 @@ class _SearchableDiscoverMerchantsSectionState
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              merchant.category,
+              merchant.businessName,
               style: const TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 14,
@@ -294,22 +315,45 @@ class _SearchableDiscoverMerchantsSectionState
                 color: Colors.black,
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            Text(
-              'MORE DETAIL',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 10,
-                fontWeight: FontWeight.w400,
-                color: AppColors.primary,
+
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () {
+                if (isGuestUser()) {
+                  showSignInRequiredSheet(context);
+                  return;
+                }
+                _showMerchantDetail(merchant);
+              },
+              child: const Text(
+                'MORE DETAIL',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.primary,
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showMerchantDetail(MerchantCard merchant) {
+    final placeholder = Merchant(
+      id: null,
+      name: merchant.businessName,
+      category: merchant.category,
+      icon: Icons.store,
+      color: AppColors.primary,
+    );
+    showMerchantDetailDialog(context, placeholder);
   }
 
   Widget _buildPlaceholderImage() {

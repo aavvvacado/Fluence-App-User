@@ -76,7 +76,7 @@ class _PasswordPinScreenState extends State<PasswordPinScreen> {
                     // Save email to shared preferences on successful login
                     SharedPreferencesService.saveEmail(widget.email);
                     await SharedPreferencesService.clearGuestSession();
-                    context.go('/ready');
+                    context.go('/home');
                   } else if (state is AuthError) {
                     // Simulating the "06 Wrong Password" state
                     setState(() {

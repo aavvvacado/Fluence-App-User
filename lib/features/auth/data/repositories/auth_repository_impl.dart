@@ -140,6 +140,114 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  // --- Google Sign In Implementation ---
+  @override
+  Future<Either<Failure, UserEntity>> signInWithGoogle() async {
+    try {
+      print('[AuthRepositoryImpl] Starting Google sign in');
+      final user = await remoteDataSource.signInWithGoogle();
+      print('[AuthRepositoryImpl] Google sign in successful: $user');
+
+      // Get Firebase ID token for API authentication
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        final idToken = await firebaseUser.getIdToken();
+        if (idToken != null) {
+          print('[AuthRepositoryImpl] Firebase ID token obtained: ${idToken.substring(0, 20)}...');
+
+          // Call API service for backend authentication
+          try {
+            final apiResponse = await ApiService.authenticateWithFirebase(
+              idToken: idToken,
+            );
+            print('[AuthRepositoryImpl] API response received: $apiResponse');
+
+            final authResponse = ApiAuthResponse.fromJson(apiResponse);
+            print('[AuthRepositoryImpl] Parsed auth response: $authResponse');
+
+            // Save API response data to shared preferences
+            await SharedPreferencesService.saveUserData(
+              userId: authResponse.user.id,
+              email: authResponse.user.email,
+              name: authResponse.user.name,
+            );
+            await SharedPreferencesService.saveToken(authResponse.token);
+            await SharedPreferencesService.setNeedsProfileCompletionFlag(authResponse.needsProfileCompletion == true);
+
+            print('[AuthRepositoryImpl] API user data saved to shared preferences');
+            print('[AuthRepositoryImpl] JWT Token: ${authResponse.token.substring(0, 20)}...');
+            print('[AuthRepositoryImpl] Needs Profile Completion: ${authResponse.needsProfileCompletion}');
+
+            // Return the API user data
+            final apiUserEntity = UserEntity(
+              id: authResponse.user.id,
+              email: authResponse.user.email,
+              name: authResponse.user.name,
+            );
+
+            return Right(apiUserEntity);
+          } catch (apiError) {
+            print('[AuthRepositoryImpl] API authentication failed: $apiError');
+            // Fallback to Firebase-only authentication
+            final tokenResult = await getAuthToken();
+            tokenResult.fold((failure) => null, (token) {
+              if (token != null) {
+                SharedPreferencesService.saveToken(token);
+                SharedPreferencesService.saveUserData(
+                  userId: user.id,
+                  email: user.email,
+                  name: user.name,
+                );
+              }
+            });
+            return Right(user);
+          }
+        } else {
+          print('[AuthRepositoryImpl] No Firebase ID token available');
+          // Fallback to Firebase-only authentication
+          final tokenResult = await getAuthToken();
+          tokenResult.fold(
+            (failure) => null,
+            (token) {
+              if (token != null) {
+                SharedPreferencesService.saveToken(token);
+                SharedPreferencesService.saveUserData(
+                  userId: user.id,
+                  email: user.email,
+                  name: user.name,
+                );
+              }
+            },
+          );
+          return Right(user);
+        }
+      } else {
+        print('[AuthRepositoryImpl] No Firebase user found, using local result');
+        final tokenResult = await getAuthToken();
+        tokenResult.fold(
+          (failure) => null,
+          (token) {
+            if (token != null) {
+              SharedPreferencesService.saveToken(token);
+              SharedPreferencesService.saveUserData(
+                userId: user.id,
+                email: user.email,
+                name: user.name,
+              );
+            }
+          },
+        );
+        return Right(user);
+      }
+    } on ServerException catch (e) {
+      print('[AuthRepositoryImpl] Server exception: ${e.message}');
+      return Left(ServerFailure(message: e.message));
+    } on Exception catch (e) {
+      print('[AuthRepositoryImpl] Unexpected error: $e');
+      return Left(ServerFailure(message: 'An unexpected error occurred'));
+    }
+  }
+
   // --- Sign Up Implementation ---
   @override
   Future<Either<Failure, UserEntity>> signUp(
@@ -312,8 +420,16 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, void>> logout() async {
     try {
-      await FirebaseAuth.instance.signOut();
+      // Sign out from Firebase (safe to call even if not signed in)
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (e) {
+        // Ignore errors if not signed in to Firebase (e.g., guest users)
+        print('[AuthRepositoryImpl] Firebase signOut error (might not be signed in): $e');
+      }
       await SharedPreferencesService.clearAuthData();
+      // Also clear guest session when logging out (handles both auth and guest users)
+      await SharedPreferencesService.clearGuestSession();
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(message: 'Logout failed. Please try again.'));
